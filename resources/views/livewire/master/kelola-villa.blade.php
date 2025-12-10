@@ -72,6 +72,10 @@
                     {{-- Tombol Aksi --}}
                     <div class="flex justify-between space-x-2 pt-2">
                         <button wire:click="editVilla({{ $item }})"
+                            class="flex-1 py-2 text-sm font-medium text-white rounded-lg bg-blue-700 hover:bg-blue-800 transition-all">
+                            Detail
+                        </button>
+                        <button wire:click="editVilla({{ $item }})"
                             class="flex-1 py-2 text-sm font-medium text-white rounded-lg bg-amber-700 hover:bg-amber-800 transition-all">
                             Edit
                         </button>

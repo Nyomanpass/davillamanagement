@@ -34,6 +34,14 @@
     
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    {{-- SCRIPT BARU DITAMBAHKAN DI SINI UNTUK MEMPERBAIKI ERROR $currentRoute --}}
+    <script>
+        // Mendefinisikan variabel global $currentRoute untuk Alpine/JS
+        // Ini mengatasi Uncaught ReferenceError saat menu mobile diproses
+        window.$currentRoute = '{{ $currentRoute }}';
+    </script>
+    {{-- AKHIR SCRIPT BARU --}}
+
     <style>
         .sidebar-active { 
             background-color: #f7d9a1; 
@@ -68,7 +76,57 @@
 
         {{-- Navigation Menu --}}
         <div class="flex-1 overflow-y-auto pt-2 pb-4 space-y-6 mt-5">
-            
+
+            <div x-data="{ openVilla: false }">
+
+    <!-- BUTTON UTAMA -->
+    <button 
+        @click="openVilla = !openVilla"
+        class="flex items-center p-2 mx-4 text-md font-medium text-white rounded-lg transition w-full pr-10"
+        :class="openVilla ? 'sidebar-active text-amber-800' : 'hover:bg-gray-100'"
+    >
+        <i class="fa-solid fa-house-chimney w-5 h-5 mr-3"
+           :class="openVilla ? 'sidebar-icon-active' : 'text-white'"></i>
+
+        <span x-show="!collapsed" x-transition.opacity>Pilih Villa</span>
+
+        <!-- Arrow -->
+        <i class="fa-solid fa-chevron-down ml-auto text-white transition-transform"
+           :class="openVilla ? 'rotate-180' : ''"></i>
+    </button>
+
+    <!-- SUBMENU -->
+    <div 
+        x-show="openVilla" 
+        x-transition 
+        class="ml-10 mt-1 space-y-1"
+        x-cloak
+    >
+
+        <!-- Dummy villa -->
+        <a href="#"
+           class="flex items-center p-2 text-sm font-medium text-white rounded-lg transition hover:bg-gray-100 hover:text-black">
+            <i class="fa-solid fa-circle w-3 h-3 mr-3"></i>
+            Villa A
+        </a>
+
+        <a href="#"
+           class="flex items-center p-2 text-sm font-medium text-white rounded-lg transition hover:bg-gray-100 hover:text-black">
+            <i class="fa-solid fa-circle w-3 h-3 mr-3"></i>
+            Villa B
+        </a>
+
+        <a href="#"
+           class="flex items-center p-2 text-sm font-medium text-white rounded-lg transition hover:bg-gray-100 hover:text-black">
+            <i class="fa-solid fa-circle w-3 h-3 mr-3"></i>
+            Villa C
+        </a>
+
+    </div>
+
+</div>
+
+
            
         <a href="{{ route('master.dashboard') }}" 
            class="flex items-center p-2 mx-4 text-md font-medium text-white rounded-lg transition"

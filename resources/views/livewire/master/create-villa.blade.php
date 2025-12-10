@@ -30,25 +30,25 @@
             
             <div>
                 <label for="nama_villa" class="block text-sm font-medium text-gray-700">Nama Villa</label>
-                <input type="text" id="nama_villa" wire:model.defer="nama_villa" class="mt-1 block w-full border p-3 rounded-md">
+                <input type="text" id="nama_villa" wire:model="nama_villa" class="mt-1 block w-full border p-3 rounded-md">
                 @error('nama_villa') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div>
                 <label for="alamat_villa" class="block text-sm font-medium text-gray-700">Alamat Villa</label>
-                <textarea id="alamat_villa" wire:model.defer="alamat_villa" rows="2" class="mt-1 block w-full border p-3 rounded-md"></textarea>
+                <textarea id="alamat_villa" wire:model="alamat_villa" rows="2" class="mt-1 block w-full border p-3 rounded-md"></textarea>
                 @error('alamat_villa') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Fee Manajemen (%)</label>
-                    <input type="number" wire:model.defer="fee_manajemen" min="0" max="100" class="mt-1 block w-full border p-3 rounded-md">
+                    <input type="number" wire:model="fee_manajemen" min="0" max="100" class="mt-1 block w-full border p-3 rounded-md">
                     @error('fee_manajemen') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Service Karyawan (%)</label>
-                    <input type="number" wire:model.defer="service_karyawan" min="0" max="100" class="mt-1 block w-full border p-3 rounded-md">
+                    <input type="number" wire:model="service_karyawan" min="0" max="100" class="mt-1 block w-full border p-3 rounded-md">
                     @error('service_karyawan') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
             </div>
@@ -57,7 +57,7 @@
         {{-- Kamar --}}
         <div class="p-6 border border-gray-300 rounded-lg mb-6">
             <label class="block text-sm font-medium text-gray-700">Jumlah Kamar</label>
-            <input type="number" wire:model.defer="jumlah_kamar" min="1" class="mt-1 block w-full border p-3 rounded-md">
+            <input type="number" wire:model="jumlah_kamar" min="1" class="mt-1 block w-full border p-3 rounded-md">
             @error('jumlah_kamar') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 
@@ -65,7 +65,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div class="p-4 border rounded-lg text-center">
                 <label>Image Gallery</label>
-                <input type="file" wire:model.defer="image_gallery" multiple class="mt-2">
+                <input type="file" wire:model="image_gallery" multiple class="mt-2">
                 @error('image_gallery.*') <span class="text-red-500 text-sm block mt-1">File tidak valid</span> @enderror
                 @if ($image_gallery)
                     <div class="flex flex-wrap gap-2 mt-2">
@@ -78,7 +78,7 @@
 
             <div class="p-4 border rounded-lg text-center">
                 <label>Image Logo</label>
-                <input type="file" wire:model.defer="image_logo" class="mt-2">
+                <input type="file" wire:model="image_logo" class="mt-2">
                 @error('image_logo') <span class="text-red-500 text-sm block mt-1">{{ $message }}</span> @enderror
                 @if ($image_logo)
                     <img src="{{ $image_logo->temporaryUrl() }}" class="h-20 w-20 object-contain rounded mt-2 mx-auto">
