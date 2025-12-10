@@ -8,6 +8,7 @@ use App\Models\Villa;
 use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException; 
 
 class CreateVilla extends Component
 {
@@ -37,54 +38,70 @@ class CreateVilla extends Component
     ];
 
     public function saveVilla()
-    {
+{
+    Log::info('DEBUG: saveVilla dipanggil - MULAI VALIDASI');
+
+    try {
+        // Lakukan validasi
         $this->validate();
-        Log::info('DEBUG: saveVilla dipanggil');
-        dd('saveVilla dipanggil');
-        try {
-            DB::beginTransaction();
+        
+        Log::info('DEBUG: VALIDASI BERHASIL!');
 
-            // Upload Logo
-            $logoPath = null;
-            if ($this->image_logo) {
-                $logoPath = $this->image_logo->store('villa_logos', 'public');
-                Log::info('DEBUG: Logo uploaded: ' . $logoPath);
-            }
+        // --- KODE UTAMA PENYIMPANAN DATA DIMULAI DI SINI ---
+        
+        DB::beginTransaction();
 
-            // Simpan data villa
-            $villa = Villa::create([
-                'nama_villa' => $this->nama_villa,
-                'alamat_villa' => $this->alamat_villa,
-                'fee_manajemen' => $this->fee_manajemen,
-                'service_karyawan' => $this->service_karyawan,
-                'jumlah_kamar' => $this->jumlah_kamar,
-                'image_logo' => $logoPath,
-                'image_gallery' => null,
-            ]);
-
-            // Upload gallery
-            $galleryPaths = [];
-            if (!empty($this->image_gallery)) {
-                foreach ($this->image_gallery as $image) {
-                    $galleryPaths[] = $image->store('villa_galleries/' . $villa->id, 'public');
-                }
-                $villa->image_gallery = $galleryPaths;
-                $villa->save();
-                Log::info('DEBUG: Gallery uploaded: ' . count($galleryPaths) . ' images');
-            }
-
-            DB::commit();
-
-            session()->flash('success', 'Villa baru berhasil ditambahkan!');
-            $this->reset();
-            return redirect()->route('master.kelola.villa');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('FATAL ERROR: ' . $e->getMessage());
-            session()->flash('error', 'Gagal menyimpan data! Cek laravel.log untuk detail.');
+        // Upload Logo
+        $logoPath = null;
+        if ($this->image_logo) {
+            $logoPath = $this->image_logo->store('villa_logos', 'public');
+            Log::info('DEBUG: Logo uploaded: ' . $logoPath);
         }
+
+        // Simpan data villa
+        $villa = Villa::create([
+            'nama_villa' => $this->nama_villa,
+            'alamat_villa' => $this->alamat_villa,
+            'fee_manajemen' => $this->fee_manajemen,
+            'service_karyawan' => $this->service_karyawan,
+            'jumlah_kamar' => $this->jumlah_kamar,
+            'image_logo' => $logoPath,
+            'image_gallery' => null,
+        ]);
+
+        // Upload gallery
+        $galleryPaths = [];
+        if (!empty($this->image_gallery)) {
+            foreach ($this->image_gallery as $image) {
+                $galleryPaths[] = $image->store('villa_galleries/' . $villa->id, 'public');
+            }
+            $villa->image_gallery = $galleryPaths;
+            $villa->save();
+            Log::info('DEBUG: Gallery uploaded: ' . count($galleryPaths) . ' images');
+        }
+
+        DB::commit();
+
+        session()->flash('success', 'Villa baru berhasil ditambahkan!');
+        $this->reset();
+        return redirect()->route('master.kelola.villa');
+
+    } catch (ValidationException $e) {
+        // JIKA VALIDASI GAGAL, CATAT DETAIL ERROR KE LOG
+        Log::error('VALIDATION FAILED: ' . json_encode($e->errors()));
+        session()->flash('error', 'Validasi gagal! Cek log (larave.log) untuk detail field mana yang error.');
+        // Re-throw Exception agar Livewire menampilkan error messages
+        throw $e; 
+
+    } catch (\Exception $e) {
+        // JIKA ADA ERROR DATABASE/SERVER LAIN
+        DB::rollBack();
+        Log::error('FATAL SAVE ERROR: ' . $e->getMessage());
+        session()->flash('error', 'Gagal menyimpan data! Cek laravel.log untuk detail.');
     }
+}
+
+
 
     public function render()
     {

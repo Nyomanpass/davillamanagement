@@ -11,6 +11,7 @@ use App\Livewire\Master\KelolaVilla;
 use App\Livewire\Master\Laporan;
 use App\Livewire\Master\HistoryUser;
 use App\Livewire\Master\CreateVilla;
+use App\Livewire\Master\CreateEmployee;
 
 // =======================
 // GUEST (Belum login)
@@ -34,13 +35,14 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:master')->group(function () {
        // Route Livewire Invokable Component
        Route::get('/master/dashboard', MasterDashboard::class)->name('master.dashboard');
-
+       Route::get('/master/karyawan/create', CreateEmployee::class)->name('master.create.employee');
        Route::get('/master/pendapatan', Pendapatan::class)->name('master.pendapatan');
        Route::get('/master/pengeluaran', Pengeluaran::class)->name('master.pengeluaran');
        Route::get('/master/kelola-villa', KelolaVilla::class)->name('master.kelola.villa'); 
        Route::get('/master/kelola-villa/create', CreateVilla::class)->name('master.create.villa');
        Route::get('/master/laporan', Laporan::class)->name('master.laporan');
        Route::get('/master/history-user', HistoryUser::class)->name('master.history.user');
+
        
     });
 
