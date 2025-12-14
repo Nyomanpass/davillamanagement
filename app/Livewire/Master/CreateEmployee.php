@@ -25,7 +25,7 @@ class CreateEmployee extends Component
 
     public function saveEmployee()
     {
-        dd('saveEmployee called');
+       
         try {
             $this->validate();
             Employee::create([

@@ -1,105 +1,321 @@
-<div class="space-y-6">
+<div class="space-y-8">
 
-    {{-- Header Halaman --}}
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Laporan</h1>
-        
-        {{-- Tombol Export Excel --}}
-        <button wire:click="exportReport"
-            class="inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all">
-            <i class="fas fa-file-excel mr-2"></i> Export Excel
-        </button>
+    {{-- HEADER --}}
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-800">
+            Dashboard Laporan
+        </h1>
+        <p class="text-sm text-slate-500 mt-1">
+            Villa: <span class="font-semibold text-amber-600">{{ $this->activeVillaName }}</span>
+        </p>
     </div>
 
-    {{-- Kontainer Utama Putih --}}
-    <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-md">
+
         
-        {{-- Filter Bulan dan Tahun --}}
-        <div class="flex flex-wrap items-center gap-4 border-b pb-4">
-            <span class="font-medium text-gray-700">Filter:</span>
-            
-            {{-- Filter Bulan --}}
-            <select wire:model.live="selectedMonth" class="py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
-                <option value="01">Januari</option>
-                <option value="02">Februari</option>
-                <option value="12">Desember</option>
-                {{-- Opsi bulan lainnya --}}
-            </select>
-            
-            {{-- Filter Tahun --}}
-            <select wire:model.live="selectedYear" class="py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                {{-- Opsi tahun lainnya --}}
-            </select>
+
+    {{-- HEADER --}}
+    <div class="px-6 py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800">
+                Filter Laporan
+            </h2>
+            <p class="text-sm text-slate-500">
+                Atur periode laporan keuangan
+            </p>
         </div>
 
-        {{-- Visualisasi Data (Mengambil gaya dashboard) --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            
-            {{-- Status Keuangan (Pie Chart) --}}
-            <div class="border border-gray-200 rounded-xl shadow-md p-4 space-y-4">
-                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                    <i class="fas fa-chart-pie mr-2 text-teal-500"></i> Status Keuangan (Bulan Ini)
-                </h3>
-                <div class="h-64 bg-gray-50 flex items-center justify-center rounded-lg text-gray-500">
-                    Placeholder: Diagram Lingkaran Status Keuangan
-                </div>
-            </div>
-
-            {{-- Occupancy (Pie Chart) --}}
-            <div class="border border-gray-200 rounded-xl shadow-md p-4 space-y-4">
-                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                    <i class="fas fa-bed mr-2 text-blue-500"></i> Tingkat Hunian (Occupancy Rate)
-                </h3>
-                <div class="h-64 bg-gray-50 flex items-center justify-center rounded-lg text-gray-500">
-                    Placeholder: Diagram Lingkaran Tingkat Hunian
-                </div>
-            </div>
+        {{-- TIPE LAPORAN --}}
+        <div class="w-full sm:w-52">
+            <select
+                wire:model.live="filterMode"
+                class="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm font-medium
+                       text-slate-700 shadow-sm
+                       focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+            >
+                <option value="monthly">Laporan Bulanan</option>
+                <option value="yearly">Laporan Tahunan</option>
+            </select>
         </div>
+    </div>
 
-        {{-- Tabel Ringkasan Keuangan Bulanan --}}
-        <div class="pt-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Ringkasan Keuangan Detail</h2>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead>
-                        <tr class="bg-gray-50">
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pendapatan (Rp)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pengeluaran (Rp)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Bersih (Rp)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {{-- Contoh Baris Data --}}
-                        <tr class="hover:bg-amber-50/50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Bulan Desember 2025</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">123.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">30.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-bold">93.000.000</td>
-                        </tr>
-                        
-                        {{-- Baris Data Detail Villa --}}
-                        <tr class="text-gray-600 border-t border-gray-100">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">Villa Jimbaran</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">100.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">25.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">75.000.000</td>
-                        </tr>
-                        <tr class="text-gray-600">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">Villa Kuta</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">23.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">5.000.000</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">18.000.000</td>
-                        </tr>
+    {{-- BODY FILTER --}}
+    <div class="px-6 py-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
-                        {{-- Baris Total (Jika diperlukan) --}}
-                    </tbody>
-                </table>
+            {{-- BULAN --}}
+            @if ($filterMode === 'monthly')
+                <div>
+                    <label class="block text-sm font-semibold text-slate-600 mb-2">
+                        Pilih Bulan
+                    </label>
+                    <select
+                        wire:model.live="selectedMonth"
+                        class="w-full rounded-xl border border-slate-300 bg-white py-3 px-4 text-sm
+                               text-slate-700 shadow-sm
+                               focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                    >
+                        @foreach ($months as $key => $month)
+                            <option value="{{ $key }}">{{ $month }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            {{-- TAHUN --}}
+            <div>
+                <label class="block text-sm font-semibold text-slate-600 mb-2">
+                    Pilih Tahun
+                </label>
+                <select
+                    wire:model.live="selectedYear"
+                    class="w-full rounded-xl border border-slate-300 bg-white py-3 px-4 text-sm
+                           text-slate-700 shadow-sm
+                           focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                >
+                    @foreach ($years as $yearKey => $year)
+                        <option value="{{ $yearKey }}">{{ $year }}</option>
+                    @endforeach
+                </select>
             </div>
-            
+
         </div>
     </div>
 </div>
+
+    
+
+
+    {{-- KONTEN --}}
+    @if (!empty($reportData))
+    <div class="space-y-8">
+
+       <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-slate-700">
+                Ringkasan Keuangan — {{ $reportData['periode'] }}
+            </h2>
+
+            <div class="flex gap-2">
+                <button
+                    wire:click="exportExcel"
+                    class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+                >
+                    Export Excel
+                </button>
+
+                <button
+                    wire:click="exportPdf"
+                    class="px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition"
+                >
+                    Export PDF
+                </button>
+            </div>
+        </div>
+
+
+        {{-- CARD RINGKASAN --}}
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+
+            @php
+                $card = 'p-4 rounded-xl bg-white border border-slate-200 shadow-sm h-28 flex flex-col justify-between';
+                $label = 'text-sm text-slate-500';
+                $value = 'text-xl font-bold text-slate-800';
+            @endphp
+
+            <div class="{{ $card }}">
+                <p class="{{ $label }}">Pendapatan</p>
+                <p class="{{ $value }}">
+                    Rp {{ number_format($reportData['totalPendapatan'], 0, ',', '.') }}
+                </p>
+            </div>
+
+            <div class="{{ $card }}">
+                <p class="{{ $label }}">Pengeluaran</p>
+                <p class="{{ $value }}">
+                    Rp {{ number_format($reportData['totalPengeluaran'], 0, ',', '.') }}
+                </p>
+            </div>
+
+            <div class="{{ $card }}">
+                <p class="{{ $label }}">Pendapatan Bersih</p>
+                <p class="{{ $value }}">
+                    Rp {{ number_format($reportData['pendapatanBersih'], 0, ',', '.') }}
+                </p>
+            </div>
+
+            <div class="{{ $card }}">
+                <p class="{{ $label }}">Fee Manajemen ({{ $reportData['feeManajemenPercentage'] }}%)</p>
+                <p class="{{ $value }}">
+                    Rp {{ number_format($reportData['feeManajemenNominal'], 0, ',', '.') }}
+                </p>
+            </div>
+
+            {{-- OWNER --}}
+            <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 shadow-sm h-28 flex flex-col justify-between">
+                <p class="text-sm text-amber-700 font-medium">TOTAL OWNER</p>
+                <p class="text-xl font-extrabold text-amber-800">
+                    Rp {{ number_format($reportData['pendapatanOwner'], 0, ',', '.') }}
+                </p>
+            </div>
+        </div>
+
+        {{-- GRID GRAFIK + DETAIL --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {{-- GRAFIK --}}
+            <div
+                x-data="financialChart()"
+                @report-data-updated.window="initChart($event.detail.data)"
+                wire:ignore
+                class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+            >
+                <h3 class="text-lg font-semibold text-slate-700 text-center mb-2">
+                    Distribusi Keuangan
+                </h3>
+                <p class="text-sm text-slate-500 text-center mb-4">
+                    Komposisi pengeluaran & keuntungan
+                </p>
+
+                <div class="h-72 flex items-center justify-center">
+                    <canvas id="financialPieChart"></canvas>
+                </div>
+            </div>
+
+            {{-- DETAIL --}}
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h3 class="text-lg font-semibold text-slate-700 border-b pb-2">
+                    Detail Perhitungan
+                </h3>
+
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Pendapatan Bersih</span>
+                        <span class="font-semibold text-slate-800">
+                            Rp {{ number_format($reportData['pendapatanBersih'], 0, ',', '.') }}
+                        </span>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">
+                            Service ({{ $reportData['serviceKaryawanPercentage'] }}%)
+                        </span>
+                        <span class="font-semibold text-slate-800">
+                            - Rp {{ number_format($reportData['serviceKaryawanNominal'], 0, ',', '.') }}
+                        </span>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Sisa Kotor</span>
+                        <span class="font-semibold text-slate-800">
+                            Rp {{ number_format($reportData['pendapatanKotor'], 0, ',', '.') }}
+                        </span>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">
+                            Fee Manajemen ({{ $reportData['feeManajemenPercentage'] }}%)
+                        </span>
+                        <span class="font-semibold text-slate-800">
+                            - Rp {{ number_format($reportData['feeManajemenNominal'], 0, ',', '.') }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t">
+                    <p class="text-sm text-slate-500">Total Owner</p>
+                    <p class="text-2xl font-extrabold text-slate-800">
+                        Rp {{ number_format($reportData['pendapatanOwner'], 0, ',', '.') }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @else
+        <div class="p-10 text-center text-slate-500 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+            <p class="font-semibold text-lg">Tidak ada data</p>
+            <p class="mt-1 text-sm">
+                Silakan pilih bulan & tahun lain.
+            </p>
+        </div>
+    @endif
+</div>
+
+
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('financialChart', () => ({
+        chart: null,
+
+        initChart(data) {
+            if (!data) return;
+
+            const canvas = document.getElementById('financialPieChart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            this.chart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [
+                        'Pengeluaran',
+                        'Service',
+                        'Fee',
+                        'Owner'
+                    ],
+                    datasets: [{
+                        data: [
+                            data.totalPengeluaran,
+                            data.serviceKaryawanNominal,
+                            data.feeManajemenNominal,
+                            data.pendapatanOwner
+                        ],
+                        backgroundColor: [
+                            '#f87171',  // merah cerah
+                            '#fb923c',  // orange cerah
+                            '#3b82f6',  // biru cerah
+                            '#34d399'   // hijau cerah
+
+                        ],
+                        hoverBackgroundColor: [
+                            '#ef4444',  // merah sedikit gelap
+                            '#f97316',  // orange sedikit gelap
+                            '#2563eb',  // biru sedikit gelap
+                            '#10b981'   // hijau sedikit gelap
+                        ],
+                        borderColor: '#fff',   // garis putih antar potongan
+                        borderWidth: 2
+                        // hoverOffset dihapus supaya tidak tonjol
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const value = ctx.raw;
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((value / total) * 100).toFixed(1);
+                                    return `${ctx.label}: Rp ${value.toLocaleString('id-ID')} (${percent}%)`;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+    }));
+});
+</script>

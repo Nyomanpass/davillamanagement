@@ -12,6 +12,10 @@ use App\Livewire\Master\Laporan;
 use App\Livewire\Master\HistoryUser;
 use App\Livewire\Master\CreateVilla;
 use App\Livewire\Master\CreateEmployee;
+use App\Livewire\Master\EditVilla; 
+use App\Http\Controllers\ExportController;
+use App\Livewire\Master\ManagementFeeReport;
+
 
 // =======================
 // GUEST (Belum login)
@@ -40,10 +44,16 @@ Route::middleware('auth')->group(function () {
        Route::get('/master/pengeluaran', Pengeluaran::class)->name('master.pengeluaran');
        Route::get('/master/kelola-villa', KelolaVilla::class)->name('master.kelola.villa'); 
        Route::get('/master/kelola-villa/create', CreateVilla::class)->name('master.create.villa');
+       Route::get('/villa/{villa}/edit', EditVilla::class)->name('master.edit.villa');
        Route::get('/master/laporan', Laporan::class)->name('master.laporan');
        Route::get('/master/history-user', HistoryUser::class)->name('master.history.user');
-
-       
+       Route::get('/export/pendapatan/excel', [ExportController::class, 'pendapatanExcel'])->name('export.pendapatan.excel');
+       Route::get('/export/pendapatan/pdf', [ExportController::class, 'pendapatanPdf'])->name('export.pendapatan.pdf');
+       Route::get('/export/pengeluaran/excel', [ExportController::class, 'pengeluaranExcel'])->name('export.pengeluaran.excel');
+       Route::get('/export/pengeluaran/pdf', [ExportController::class, 'pengeluaranPdf'])->name('export.pengeluaran.pdf');
+       Route::get('/laporan/excel', [ExportController::class, 'laporanExcel'])->name('laporan.excel');
+       Route::get('/laporan/pdf', [ExportController::class, 'laporanPdf'])->name('laporan.pdf');
+       Route::get('/master/laporan/fee-manajemen', ManagementFeeReport::class)->name('master.report.fee-management'); 
     });
 
     // =======================
