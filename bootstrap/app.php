@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'guest' => \Illuminate\Auth\Middleware\RedirectIfAuthenticated::class,
 
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'pin.verified' => \App\Http\Middleware\CheckAccessCode::class,
         ]);
     })
 

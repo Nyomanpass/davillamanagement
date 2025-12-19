@@ -33,7 +33,7 @@ public function updateVilla($newVillaId)
         if ($villaId) {
             $villa = Villa::find($villaId);
             if ($villa) {
-                $this->activeVillaName = "🏡 {$villa->nama_villa}";
+                $this->activeVillaName = "{$villa->nama_villa}";
             } else {
                 $this->activeVillaName = 'Villa tidak ditemukan';
             }

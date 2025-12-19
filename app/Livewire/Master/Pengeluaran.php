@@ -6,44 +6,48 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
 use App\Models\Villa;
-use App\Models\Pengeluaran as PengeluaranModel; // Import Model Pengeluaran
+use App\Models\Category; // Import Model Category
+use App\Models\Pengeluaran as PengeluaranModel;
 use Carbon\Carbon;
-use Livewire\WithPagination; 
+use Livewire\WithPagination;
 
 #[Layout('layouts.app')]
 class Pengeluaran extends Component
 {
     use WithPagination;
     
-    // --- Properti Villa Aktif ---
+    // --- Properti Villa & State ---
     public $activeVillaId; 
     public $activeVillaName;
+    public $pengeluaranId = null; 
+    public $isEditMode = false;
 
-    // --- Properti Form Input (CREATE) ---
-    #[Rule('required')] public $jenisPengeluaran = 'gaji'; // Set default pengeluaran
-    #[Rule('required|numeric|min:1')] public $nominal;
-    public $tanggal; // Akan diset di mount
-    public $keterangan; // Tambahan untuk pengeluaran (optional)
+    // --- Properti Form Input (Sesuai Migrasi Baru) ---
+    public $category_id;
+    public $nama_pengeluaran;
+    public $qty = 1;
+    public $satuan = 'Pcs';
+    public $harga_satuan = 0;
+    public $nominal = 0; // Total (Qty * Harga Satuan)
+    public $tanggal;
+    public $metode_pembayaran = 'cash';
+    public $keterangan;
 
     // --- Properti Filter ---
     public $filterBulan = ''; 
     public $filterTahun = '';
     public $filterStartDate = '';
     public $filterEndDate = '';
+    public $filterCategory = ''; // Filter Kategori Baru
     public $perPage = 10;
     
-    // --- Dropdown ---
-    public $listJenisPengeluaran = [
-        'gaji' => 'Gaji Karyawan',
-        'operasional' => 'Biaya Operasional',
-        'marketing' => 'Biaya Marketing',
-        'listrik' => 'Biaya Listrik/Air',
-        'makanan' => 'Belanja Makanan/Bahan',
-        'lainnya' => 'Pengeluaran Lain-Lain',
-    ];
     public $listTahun = []; 
-    
-    // --- Ringkasan ---
+    public $listMetodePembayaran = [
+        'cash' => 'Tunai (Cash)',
+        'transfer' => 'Transfer Bank',
+        'petty_cash' => 'Petty Cash',
+    ];
+
     public $ringkasanBulanIni = 0;
     public $ringkasanHariIni = 0;
     public $ringkasanAllTime = 0;
@@ -51,114 +55,162 @@ class Pengeluaran extends Component
 
     public function mount()
     {
-        // ... (Logika Cek Villa Aktif tetap sama) ...
         $this->activeVillaId = session('villa_id');
         $activeVilla = Villa::find($this->activeVillaId);
         
         if (empty($this->activeVillaId) || !$activeVilla) {
-            session()->flash('error', 'Silakan pilih Villa yang ingin dikelola terlebih dahulu.');
+            session()->flash('error', 'Silakan pilih Villa terlebih dahulu.');
             return $this->redirect(route('master.dashboard')); 
         }
 
         $this->activeVillaName = $activeVilla->nama_villa;
         $this->tanggal = now()->format('Y-m-d');
         
-        // Populate Tahun Filter
         $currentYear = now()->year;
         for ($i = 0; $i < 5; $i++) {
             $year = $currentYear - $i;
             $this->listTahun[$year] = $year;
         }
 
-        $this->filterBulan = now()->format('m'); // '01'..'12'
+        $this->filterBulan = now()->format('m');
         $this->filterTahun = $currentYear;
         $this->hitungRingkasan();
     }
-    
-    public function savePengeluaran() // Ubah nama method
+
+    // --- Hook Updated untuk Auto Calculate & Filter ---
+    public function updated($propertyName)
     {
-        // Validasi
+        // Hitung Otomatis Nominal: Qty * Harga Satuan
+        if (in_array($propertyName, ['qty', 'harga_satuan'])) {
+            $this->nominal = (float)$this->qty * (float)$this->harga_satuan;
+        }
+
+        // Reset Page jika filter berubah
+        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory'])) {
+            $this->resetPage();
+            $this->hitungRingkasan();
+        }
+    }
+
+    public function resetForm()
+    {
+        $this->reset([
+            'category_id', 'nama_pengeluaran', 'qty', 'satuan', 
+            'harga_satuan', 'nominal', 'keterangan', 'pengeluaranId', 'isEditMode'
+        ]); 
+        $this->tanggal = Carbon::now()->format('Y-m-d');
+        $this->qty = 1;
+        $this->metode_pembayaran = 'cash';
+    }
+
+    public function resetFilter()
+    {
+        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory']);
+        $this->filterBulan = now()->format('m');
+        $this->filterTahun = now()->year;
+        $this->hitungRingkasan(); 
+        $this->resetPage(); 
+    }
+
+    public function savePengeluaran()
+    {
         $this->validate([
-            'jenisPengeluaran' => 'required',
+            'category_id' => 'required',
+            'nama_pengeluaran' => 'required|string|max:255',
+            'qty' => 'required|numeric|min:0.1',
+            'harga_satuan' => 'required|numeric',
             'nominal' => 'required|numeric|min:1',
             'tanggal' => 'required|date',
-            'keterangan' => 'nullable|string|max:255', // Keterangan adalah optional
+            'metode_pembayaran' => 'required',
         ]);
 
+        $data = [
+            'villa_id' => $this->activeVillaId,
+            'category_id' => $this->category_id,
+            'nama_pengeluaran' => $this->nama_pengeluaran,
+            'qty' => $this->qty,
+            'satuan' => $this->satuan,
+            'harga_satuan' => $this->harga_satuan,
+            'nominal' => $this->nominal,
+            'tanggal' => $this->tanggal,
+            'metode_pembayaran' => $this->metode_pembayaran,
+            'keterangan' => $this->keterangan,
+        ];
+
         try {
-            PengeluaranModel::create([ // Gunakan Model Pengeluaran
-                'villa_id' => $this->activeVillaId,
-                'jenis_pengeluaran' => $this->jenisPengeluaran,
-                'nominal' => $this->nominal,
-                'tanggal' => $this->tanggal,
-                'keterangan' => $this->keterangan, // Simpan keterangan
-            ]);
+            if ($this->isEditMode && $this->pengeluaranId) {
+                PengeluaranModel::findOrFail($this->pengeluaranId)->update($data);
+                session()->flash('success', 'Data pengeluaran berhasil diperbarui.');
+            } else {
+                PengeluaranModel::create($data);
+                session()->flash('success', 'Data pengeluaran berhasil ditambahkan.');
+            }
 
-            session()->flash('success', 'Data pengeluaran berhasil ditambahkan.');
-            
-            // Reset form setelah simpan
-            $this->reset(['jenisPengeluaran', 'nominal', 'keterangan']); 
-            
-            // Set ulang default field
-            $this->tanggal = Carbon::now()->format('Y-m-d');
-            $this->jenisPengeluaran = 'gaji';
-
-            // Muat ulang data ringkasan dan tabel
+            $this->resetForm();
             $this->hitungRingkasan();
             $this->resetPage();
-
         } catch (\Exception $e) {
             session()->flash('error', 'Gagal menyimpan data: ' . $e->getMessage());
         }
     }
 
-    public function updated($propertyName)
+    public function edit($id)
     {
-        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate'])) {
+        $p = PengeluaranModel::findOrFail($id);
+        
+        $this->pengeluaranId = $p->id;
+        $this->category_id = $p->category_id;
+        $this->nama_pengeluaran = $p->nama_pengeluaran;
+        $this->qty = $p->qty;
+        $this->satuan = $p->satuan;
+        $this->harga_satuan = $p->harga_satuan;
+        $this->nominal = $p->nominal;
+        $this->tanggal = Carbon::parse($p->tanggal)->format('Y-m-d');
+        $this->metode_pembayaran = $p->metode_pembayaran;
+        $this->keterangan = $p->keterangan; 
+        
+        $this->isEditMode = true;
+        $this->js('window.scrollTo({top: 0, behavior: "smooth"})');
+    }
+
+    public function delete($id)
+    {
+        try {
+            PengeluaranModel::findOrFail($id)->delete();
+            session()->flash('success', 'Data pengeluaran berhasil dihapus.');
+            $this->hitungRingkasan();
             $this->resetPage();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menghapus data.');
         }
     }
 
     private function hitungRingkasan()
     {
-        if (!$this->activeVillaId) { return; }
+        if (!$this->activeVillaId) return;
 
-        $bulanIni = now()->format('m');
-        $hariIni = now()->toDateString(); 
-        $baseQuery = PengeluaranModel::where('villa_id', $this->activeVillaId); // Gunakan Model Pengeluaran
+        $baseQuery = PengeluaranModel::where('villa_id', $this->activeVillaId);
 
-        $this->ringkasanBulanIni = $baseQuery->clone()->whereMonth('tanggal', $bulanIni)->sum('nominal');
-        $this->ringkasanHariIni = $baseQuery->clone()->whereDate('tanggal', $hariIni)->sum('nominal');
+        $this->ringkasanBulanIni = $baseQuery->clone()->whereMonth('tanggal', now()->month)->whereYear('tanggal', now()->year)->sum('nominal');
+        $this->ringkasanHariIni = $baseQuery->clone()->whereDate('tanggal', now()->toDateString())->sum('nominal');
         $this->ringkasanAllTime = $baseQuery->clone()->sum('nominal');
-
-        // Hitung Total Berdasarkan Filter
-        $this->ringkasanTotalFilter = $this->applyFilter($baseQuery)->sum('nominal');
+        $this->ringkasanTotalFilter = $this->applyFilter($baseQuery->clone())->sum('nominal');
     }
     
     private function applyFilter($query)
     {
-        if ($this->filterBulan) {
-            $query->whereMonth('tanggal', $this->filterBulan);
-        }
-
-        if ($this->filterTahun) {
-            $query->whereYear('tanggal', $this->filterTahun);
-        }
-        
-        if ($this->filterStartDate) {
-            $query->whereDate('tanggal', '>=', $this->filterStartDate);
-        }
-        
-        if ($this->filterEndDate) {
-            $query->whereDate('tanggal', '<=', $this->filterEndDate);
-        }
+        if ($this->filterBulan) $query->whereMonth('tanggal', $this->filterBulan);
+        if ($this->filterTahun) $query->whereYear('tanggal', $this->filterTahun);
+        if ($this->filterStartDate) $query->whereDate('tanggal', '>=', $this->filterStartDate);
+        if ($this->filterEndDate) $query->whereDate('tanggal', '<=', $this->filterEndDate);
+        if ($this->filterCategory) $query->where('category_id', $this->filterCategory); // Filter Kategori
 
         return $query;
     }
 
     private function getFilteredData()
     {
-        $baseQuery = PengeluaranModel::with('villa') // Gunakan Model Pengeluaran
+        $baseQuery = PengeluaranModel::with(['villa', 'category'])
             ->where('villa_id', $this->activeVillaId);
 
         return $this->applyFilter($baseQuery)->latest()->get();
@@ -168,56 +220,40 @@ class Pengeluaran extends Component
     {
         return [
             'villa_id' => $this->activeVillaId,
-            'bulan' => $this->filterBulan,
-            'tahun' => $this->filterTahun,
-            'start' => $this->filterStartDate,
-            'end' => $this->filterEndDate,
+            'bulan'    => $this->filterBulan,
+            'tahun'    => $this->filterTahun,
+            'start'    => $this->filterStartDate,
+            'end'      => $this->filterEndDate,
+            'category' => $this->filterCategory, // Kirim kategori ke export
         ];
     }
 
     public function exportExcel()
     {
         if ($this->getFilteredData()->isEmpty()) {
-            session()->flash('error', 'Tidak ada data yang sesuai dengan filter untuk diekspor ke Excel.');
+            session()->flash('error', 'Tidak ada data untuk diekspor.');
             return;
         }
-
-        $params = $this->getExportParams();
-
-        // Redirect ke rute export pengeluaran
-        $this->redirect(route('export.pengeluaran.excel', $params)); 
+        $this->redirect(route('export.pengeluaran.excel', $this->getExportParams())); 
     }
-
 
     public function exportPdf()
     {
-        // Asumsi: getFilteredData() mengambil data berdasarkan filter Livewire saat ini
         if ($this->getFilteredData()->isEmpty()) {
-            session()->flash('error', 'Tidak ada data yang sesuai dengan filter untuk diekspor ke PDF.');
+            session()->flash('error', 'Tidak ada data untuk diekspor.');
             return;
         }
-
-        $params = $this->getExportParams();
-         $this->redirect(route('export.pengeluaran.pdf', $params)); 
+        $this->redirect(route('export.pengeluaran.pdf', $this->getExportParams())); 
     }
-
 
     public function render()
     {
-        // 1. Dapatkan Base Query
-        $pengeluaranQuery = PengeluaranModel::with('villa') // Gunakan Model Pengeluaran
+        $query = PengeluaranModel::with(['villa', 'category'])
             ->where('villa_id', $this->activeVillaId);
 
-        // 2. Terapkan Filter
-        $pengeluaranFiltered = $this->applyFilter($pengeluaranQuery)
-            ->latest()
-            ->paginate($this->perPage, ['*'], 'pengeluaranPage'); // Ubah nama pagination
-
-        // 3. Update Ringkasan
-        $this->hitungRingkasan(); 
-
         return view('livewire.master.pengeluaran', [
-            'dataPengeluaran' => $pengeluaranFiltered, // Ubah nama variabel
+            'dataPengeluaran' => $this->applyFilter($query)->latest()->paginate($this->perPage, ['*'], 'pengeluaranPage'),
+            'categories' => Category::where('type', 'expense')->get(), // Ambil kategori pengeluaran
         ]);
     }
 }

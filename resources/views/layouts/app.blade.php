@@ -10,7 +10,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
    
     @livewireStyles
 </head>
@@ -23,12 +23,7 @@
         text-white shadow-xl">
 
         <div class="p-6 border-b border-white/20">
-            <h1 class="text-xl font-bold tracking-wide">
-                Davilla Management
-            </h1>
-            <p class="text-xs text-white/80 mt-1">
-                Villa Control System
-            </p>
+           <img src="/images/logodua.png" alt="">
         </div>
 
         @php
@@ -38,107 +33,139 @@
             $showLaporanSub = false; // state untuk toggle
         @endphp
 
-        <nav class="mt-6 px-4 space-y-2">
+<nav class="mt-6 px-4 space-y-1.5">
+    @php
+        $role = auth()->user()->role ?? null;
+        
+        // 1. Tentukan PREFIX URL berdasarkan role
+        $isMasterLevel = in_array($role, ['master', 'staf_master']);
+        $urlPrefix = $isMasterLevel ? 'master' : 'villa';
+        
+        // 2. Tentukan izin untuk menampilkan menu terbatas
+        $isMasterAdmin = ($role === 'master');
+        $isLimitedUser = in_array($role, ['staf_master', 'owner', 'staf']);
 
-            {{-- DASHBOARD --}}
-            <a href="{{ url('/master/dashboard') }}"
-            class="{{ $menuBase }} {{ request()->is('master/dashboard') ? $active : $hover }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                    viewBox="0 0 24 24">
-                    <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
-                </svg>
-                Dashboard
-            </a>
+        // Variabel Izin
+        $canAccessFinance = $isMasterAdmin || $isLimitedUser || auth()->user()->hasPermissionTo('pendapatan'); 
+        $canAccessLaporan = $isMasterAdmin || $isLimitedUser || auth()->user()->hasPermissionTo('laporan');
 
-            {{-- PENDAPATAN --}}
-            <a href="{{ url('/master/pendapatan') }}"
-            class="{{ $menuBase }} {{ request()->is('master/pendapatan*') ? $active : $hover }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                    viewBox="0 0 24 24">
-                    <path d="M12 8c-3.314 0-6 1.79-6 4s2.686 4 6 4 6-1.79 6-4-2.686-4-6-4z"/>
-                    <path d="M6 12v4c0 2.21 2.686 4 6 4s6-1.79 6-4v-4"/>
-                </svg>
-                Pendapatan
-            </a>
+        // Style Helper (Pastikan variabel ini sudah didefinisikan di component)
+        // $menuBase = "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all";
+    @endphp
 
-            {{-- PENGELUARAN --}}
-            <a href="{{ url('/master/pengeluaran') }}"
-            class="{{ $menuBase }} {{ request()->is('master/pengeluaran*') ? $active : $hover }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                    viewBox="0 0 24 24">
-                    <path d="M17 9l-5 5-5-5"/>
-                    <path d="M12 4v10"/>
-                </svg>
-                Pengeluaran
-            </a>
+    {{-- 1. DASHBOARD --}}
+    <a href="{{ url($urlPrefix . '/dashboard') }}"
+    class="{{ $menuBase }} {{ request()->is($urlPrefix . '/dashboard') ? $active : $hover }}">
+        <i class="fa-solid fa-house w-5 text-center text-base"></i>
+        <span>Dashboard</span>
+    </a>
 
+    {{-- 2. PENDAPATAN --}}
+    @if ($canAccessFinance)
+        <a href="{{ url($urlPrefix . '/pendapatan') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/pendapatan*') ? $active : $hover }}">
+            <i class="fa-solid fa-wallet w-5 text-center text-base"></i>
+            <span>Pendapatan</span>
+        </a>
+    @endif
+
+    {{-- 3. PENGELUARAN --}}
+    @if ($canAccessFinance)
+        <a href="{{ url($urlPrefix . '/pengeluaran') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/pengeluaran*') ? $active : $hover }}">
+            <i class="fa-solid fa-cart-shopping w-5 text-center text-base"></i>
+            <span>Pengeluaran</span>
+        </a>
+    @endif
+
+    {{-- 4. LAPORAN (Dropdown) --}}
+    @if ($canAccessLaporan)
+        <div x-data="{ open: {{ request()->is($urlPrefix . '/laporan*') ? 'true' : 'false' }} }" class="relative">
+             <button @click="open = !open"
+                class="{{ $menuBase }} {{ request()->is($urlPrefix . '/laporan*') ? $active : $hover }} flex items-center justify-between w-full text-left">
+                <span class="flex items-center gap-3">
+                    <i class="fa-solid fa-chart-pie w-5 text-center text-base"></i>
+                    <span>Laporan</span>
+                </span>
+                <i :class="{ 'rotate-180': open }" class="fa-solid fa-chevron-down text-[10px] transition-transform duration-300"></i>
+            </button>
+
+            <div x-show="open" 
+    x-cloak
+    x-collapse
+    class="mt-2 ml-6 space-y-2 border-l border-white/20"> {{-- Garis pinggir tipis transparan --}}
     
-            {{-- LAPORAN --}}
-             <!-- Parent Menu -->
-            <div x-data="{ open: false }" class="relative">
-                 <!-- Parent Menu -->
-                <button @click="open = !open"
-                    class="{{ $menuBase }} {{ request()->is('master/laporan*') ? $active : $hover }} flex items-center justify-between w-full">
-                    <span class="flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M9 17v-6M13 17v-4M17 17v-8"/>
-                            <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
-                        </svg>
-                        Laporan
-                    </span>
-                    <svg :class="{ 'rotate-180': open }" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </button>
+    {{-- Laporan Villa --}}
+    <a href="{{ url($urlPrefix . '/laporan/') }}" 
+       class="flex items-center py-2 px-4 text-sm font-semibold transition-all
+       {{ request()->is($urlPrefix . '/laporan') ? 'text-amber-400' : 'text-white' }}">
+       
+       {{-- Ikon Box Chart untuk Laporan Villa --}}
+       <i class="fa-solid fa-chart-column text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan') ? 'text-amber-400' : 'text-white/60' }}"></i>
+       Laporan Villa
+    </a>
+    <a href="{{ url($urlPrefix . '/laporan/okupansi') }}" 
+       class="flex items-center py-2 px-4 text-sm font-semibold transition-all
+       {{ request()->is($urlPrefix . '/laporan/okupansi*') ? 'text-amber-400' : 'text-white' }}">
+       {{-- Ikon Bed atau Door Open untuk Okupansi --}}
+       <i class="fa-solid fa-bed text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan/okupansi*') ? 'text-amber-400' : 'text-white/60' }}"></i>
+       Okupansi Villa
+    </a>
 
-                <!-- Sub-menu -->
-                <div x-show="open" 
-                    x-cloak
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0 transform -translate-y-2"
-                    x-transition:enter-end="opacity-100 transform translate-y-0"
-                    x-transition:leave="transition ease-in duration-150"
-                    x-transition:leave-start="opacity-100 transform translate-y-0"
-                    x-transition:leave-end="opacity-0 transform -translate-y-2"
-                    class="mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50 absolute">
+    {{-- Fee Manajemen (Hanya untuk Master) --}}
+    @if ($isMasterAdmin)
+        <a href="{{ url($urlPrefix . '/laporan/fee-manajemen') }}" 
+           class="flex items-center py-2 px-4 text-sm font-semibold transition-all
+           {{ request()->is($urlPrefix . '/laporan/fee-manajemen*') ? 'text-amber-400' : 'text-white' }}">
+           
+           {{-- Ikon Coins untuk Fee Manajemen --}}
+           <i class="fa-solid fa-coins text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan/fee-manajemen*') ? 'text-amber-400' : 'text-white/60' }}"></i>
+           Fee Manajemen
+        </a>
+    @endif
+</div>
+        </div>
+    @endif
+    
+    <div class="my-4 border-t border-slate-100 mx-2"></div>
 
-                    <a href="{{ url('/master/laporan/') }}" 
-                    class="block px-5 py-3 text-sm font-medium text-gray-700 hover:bg-secondary/30 hover:text-primary transition-colors">
-                    Laporan Villa
-                    </a>
+    {{-- 5. KELOLA VILLA (Hanya untuk Master) --}}
+    @if ($isMasterAdmin)
+        <a href="{{ url($urlPrefix . '/kelola-villa') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/kelola-villa*') ? $active : $hover }}">
+            <i class="fa-solid fa-villas w-5 text-center text-base fa-hotel"></i>
+            <span>Kelola Villa</span>
+        </a>
+    @endif
 
-                    <a href="{{ url('/master/laporan/fee-manajemen') }}" 
-                    class="block px-5 py-3 text-sm font-medium text-gray-700 hover:bg-secondary/30 hover:text-primary  transition-colors">
-                    Fee Manajemen
-                    </a>
-                </div>
-            </div>
+    {{-- 6. LOG AKTIVITAS (Hanya untuk Master) --}}
+    @if ($isMasterAdmin)
+        <a href="{{ url($urlPrefix . '/history-user') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/history-user*') ? $active : $hover }}">
+            <i class="fa-solid fa-clock-rotate-left w-5 text-center text-base"></i>
+            <span>Log Aktivitas</span>
+        </a>
+    @endif
 
-                 {{-- KELOLA VILLA --}}
-            <a href="{{ url('/master/kelola-villa') }}"
-            class="{{ $menuBase }} {{ request()->is('master/kelola-villa*') ? $active : $hover }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                    viewBox="0 0 24 24">
-                    <path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2z"/>
-                </svg>
-                Kelola Villa
-            </a>
+    {{-- 7. KELOLA AKUN --}}
+    @if ($isMasterAdmin)
+        <a href="{{ url($urlPrefix . '/akun/kelola') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/akun/kelola*') ? $active : $hover }}">
+            <i class="fa-solid fa-user-gear w-5 text-center text-base"></i>
+            <span>Kelola Akun</span>
+        </a>
+    @endif
 
+    {{-- 8. SETTING KATEGORI --}}
+    @if ($isMasterAdmin)
+        <a href="{{ url($urlPrefix . '/settings/categories') }}"
+        class="{{ $menuBase }} {{ request()->is($urlPrefix . '/settings/categories*') ? $active : $hover }}">
+            <i class="fa-solid fa-tags w-5 text-center text-base"></i>
+            <span>Setting Kategori</span>
+        </a>
+    @endif
 
-
-            {{-- HISTORY USER --}}
-            <a href="{{ url('/master/history-user') }}"
-            class="{{ $menuBase }} {{ request()->is('master/history-user*') ? $active : $hover }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                    viewBox="0 0 24 24">
-                    <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z"/>
-                    <path d="M3 21v-1a7 7 0 0 1 14 0v1"/>
-                </svg>
-                History User
-            </a>
-
-        </nav>
+</nav>
     </aside>
 
 
@@ -148,18 +175,23 @@
         {{-- HEADER --}}
      <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b">
     <div>
-        <h2 class="text-xl font-semibold text-[#8c6c3e]">
-            @yield('title', 'Dashboard')
-        </h2>
+       
 
         {{-- VILLA AKTIF (Panggil Komponen Livewire Baru) --}}
         @livewire('active-villa-header')
         
     </div>
 
-    <a href="/logout" class="text-sm font-semibold text-red-600 hover:underline">
-        Logout
+    <div class="mt-4 px-1">
+    <a href="/logout" 
+       class="flex items-center justify-center gap-3 w-full py-3 px-4 bg-red-50 text-red-600 rounded-xl border border-red-100 font-bold text-sm transition-all duration-300 hover:bg-red-600 hover:text-white hover:shadow-lg group">
+        
+        {{-- Ikon Logout --}}
+        <i class="fa-solid fa-right-from-bracket text-sm transition-transform group-hover:-translate-x-1"></i>
+        
+        <span>Keluar Aplikasi</span>
     </a>
+</div>
 </header>
         {{-- PAGE CONTENT --}}
         <main class="p-6">

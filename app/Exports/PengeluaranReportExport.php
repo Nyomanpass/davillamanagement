@@ -8,13 +8,9 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Carbon\Carbon;
-
-// Import class dari PhpSpreadsheet untuk styling
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-
 
 class PengeluaranReportExport implements 
     FromCollection,
@@ -23,126 +19,117 @@ class PengeluaranReportExport implements
 {
     protected $data;
     protected $villaName;
-    protected $listJenisPengeluaran;
+    protected $categoryName;
+    protected $filterParams; // Menangkap filter untuk periode
 
-    // Bagian 1: Constructor
-    public function __construct(Collection $data, string $villaName, array $listJenisPengeluaran)
+    public function __construct(Collection $data, string $villaName, string $categoryName, array $filterParams)
     {
         $this->data = $data;
         $this->villaName = $villaName;
-        $this->listJenisPengeluaran = $listJenisPengeluaran;
+        $this->categoryName = $categoryName;
+        $this->filterParams = $filterParams;
     }
     
-    // Bagian 2: Collection (Data dan Baris Total)
     public function collection()
     {
-        $listJenisPengeluaran = $this->listJenisPengeluaran;
-        
         $report = new Collection();
 
-        // 1. Baris 1: Judul Utama
-        $report->push(['LAPORAN PENGELUARAN VILLA']);
+        // --- Logika Penentuan Teks Periode (Sesuai PDF) ---
+        $start = $this->filterParams['start'] ?? null;
+        $end = $this->filterParams['end'] ?? null;
+        $bulan = (isset($this->filterParams['bulan']) && $this->filterParams['bulan'] !== '') ? (int)$this->filterParams['bulan'] : null;
+        $tahun = (isset($this->filterParams['tahun']) && $this->filterParams['tahun'] !== '') ? (int)$this->filterParams['tahun'] : null;
 
-        // 2. Baris 2: Nama Villa
-        $report->push(['Villa: ' . $this->villaName]);
-        
-        // 3. Baris 3: Baris Kosong
+        if ($start && $end) {
+            $periodeTeks = Carbon::parse($start)->translatedFormat('d M Y') . ' - ' . Carbon::parse($end)->translatedFormat('d M Y');
+        } elseif ($bulan && $tahun) {
+            $periodeTeks = Carbon::create()->month($bulan)->translatedFormat('F') . ' ' . $tahun;
+        } elseif ($tahun) {
+            $periodeTeks = 'Tahun ' . $tahun;
+        } else {
+            $periodeTeks = 'Semua Data';
+        }
+
+        // 1. Header Judul & Detail Laporan
+        $report->push(['LAPORAN PENGELUARAN VILLA']);
+        $report->push(['Villa', ': ' . $this->villaName]);
+        $report->push(['Kategori', ': ' . $this->categoryName]);
+        $report->push(['Periode', ': ' . $periodeTeks]);
+        $report->push(['Tanggal Cetak', ': ' . now()->translatedFormat('d F Y H:i')]);
         $report->push(['']); 
 
-        // 4. Baris 4: Header Kolom (A, B, C, D, E)
-        $report->push(['No.', 'Tanggal', 'Jenis Pengeluaran', 'Nominal (Rp)', 'Keterangan']);
+        // 2. Header Kolom (Baris ke-7)
+        $report->push(['No.', 'Tanggal', 'Kategori', 'Nama Pengeluaran', 'Qty', 'Harga Satuan (Rp)', 'Total Nominal (Rp)', 'Metode', 'Keterangan']);
 
-        // 5. Baris 5 ke bawah: Data Pengeluaran
+        // 3. Data
         $totalNominal = 0;
         foreach ($this->data as $index => $item) {
             $totalNominal += $item->nominal;
             $report->push([
                 $index + 1,
                 $item->tanggal->format('d/m/Y'), 
-                $listJenisPengeluaran[$item->jenis_pengeluaran] ?? $item->jenis_pengeluaran,
-                $item->nominal, // Nominal (Kolom D)
-                $item->keterangan ?? '-', // Keterangan (Kolom E)
+                $item->category->name ?? '-',
+                $item->nama_pengeluaran,
+                (float)$item->qty . ' ' . $item->satuan,
+                $item->harga_satuan,
+                $item->nominal,
+                strtoupper($item->metode_pembayaran),
+                $item->keterangan ?? '-',
             ]);
         }
         
-        // 6. Baris Total: Teks TOTAL PENGELUARAN di Kolom C, Nominal di Kolom D
-        // Array: ['A', 'B', 'C (TEKS TOTAL)', 'D (NOMINAL)', 'E']
-        $report->push(['TOTAL PENGELUARAN', '', '', $totalNominal, '']);
+        // 4. Baris Total
+        $report->push(['TOTAL PENGELUARAN', '', '', '', '', '', $totalNominal, '', '']);
 
         return $report;
     }
     
-    // Bagian 3: Register Events (Styling dan Merge)
     public function registerEvents(): array
     {
         return [
             AfterSheet::class => function(AfterSheet $event) {
-                
                 $sheet = $event->sheet;
-                $dataRowCount = $this->data->count();
-                
-                $headerRow = 4;
-                $firstDataRow = 5;
-                $lastDataRow = 4 + $dataRowCount;
-                $totalRow = $lastDataRow + 1; // Baris untuk Total Nominal
+                $rowCount = $this->data->count();
+                $headerRow = 7; 
+                $firstDataRow = 8;
+                $lastDataRow = 7 + $rowCount;
+                $totalRow = $lastDataRow + 1;
 
-                // --- 1 & 2. JUDUL & NAMA VILLA ---
-                $sheet->mergeCells('A1:E1'); 
-                $sheet->getStyle('A1')->applyFromArray([
-                    'font' => ['bold' => true, 'size' => 16, 'color' => ['argb' => 'FF800000']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
-                ]);
-                $sheet->mergeCells('A2:E2');
-                $sheet->getStyle('A2')->applyFromArray([
-                    'font' => ['bold' => true, 'size' => 12],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
-                ]);
-                
-                // --- 2. HEADER KOLOM ---
-                $sheet->getStyle('A' . $headerRow . ':E' . $headerRow)->applyFromArray([
+                // Styling Judul & Info
+                $sheet->mergeCells('A1:I1');
+                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+                $sheet->getStyle('A2:A5')->getFont()->setBold(true);
+
+                // Header Kolom Styling (Warna Slate/Biru Gelap)
+                $sheet->getStyle('A'.$headerRow.':I'.$headerRow)->applyFromArray([
                     'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF800000']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1E293B']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                 ]);
-                
-                // --- 3. BORDER DATA ---
-                $sheet->getStyle('A' . $firstDataRow . ':E' . $lastDataRow)->applyFromArray([
+
+                // Border & Alignment Data
+                $sheet->getStyle('A'.$firstDataRow.':I'.$lastDataRow)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                $sheet->getStyle('A'.$firstDataRow.':B'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$firstDataRow.':E'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$firstDataRow.':H'.$lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                // Format Rupiah (F & G)
+                $sheet->getStyle('F'.$firstDataRow.':G'.$totalRow)->getNumberFormat()->setFormatCode('"Rp"#,##0_-');
+
+                // Styling Total Row
+                $sheet->mergeCells('A'.$totalRow.':F'.$totalRow);
+                $sheet->getStyle('A'.$totalRow.':I'.$totalRow)->applyFromArray([
+                    'font' => ['bold' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
                 ]);
-                
-                // --- 4. PERBAIKAN TOTAL ROW ---
-                
-                // FIX: Merge Kolom A, B, dan C untuk TEKS TOTAL
-                $sheet->mergeCells('A' . $totalRow . ':C' . $totalRow); 
-                
-                // Styling (A:E) untuk seluruh baris total
-                $sheet->getStyle('A' . $totalRow . ':E' . $totalRow)->applyFromArray([
-                    'font' => ['bold' => true, 'color' => ['argb' => 'FF000000']], // Pastikan teks hitam
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFAE3E3']],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-                ]);
-                
-                // Alignment teks total harus rata kanan (karena sudah di-merge ke sel A)
-                $sheet->getStyle('A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-                // --- 5. FORMAT RUPIAH DAN ALIGNMENT ---
-                
-                // Format Rupiah untuk kolom D (Data dan Total)
-                $sheet->getStyle('D' . $firstDataRow . ':D' . $totalRow)->getNumberFormat()->setFormatCode('"Rp"#,##0.00_-');
-                
-                // Rata kanan untuk kolom Nominal (D)
-                $sheet->getStyle('D' . $firstDataRow . ':D' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                
-                // Rata tengah untuk kolom No. (A)
-                $sheet->getStyle('A' . $firstDataRow . ':A' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-                // --- 6. ATUR LEBAR KOLOM ---
-                $sheet->getColumnDimension('A')->setWidth(5);   
-                $sheet->getColumnDimension('B')->setWidth(15);  
-                $sheet->getColumnDimension('C')->setWidth(30);  
-                $sheet->getColumnDimension('D')->setWidth(20);  
-                $sheet->getColumnDimension('E')->setWidth(40); 
+                // Set Lebar Kolom
+                $sheet->getColumnDimension('A')->setWidth(5);
+                $sheet->getColumnDimension('D')->setWidth(35);
+                $sheet->getColumnDimension('I')->setWidth(30);
             },
         ];
     }

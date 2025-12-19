@@ -4,10 +4,10 @@
     <div class="flex w-full max-w-5xl shadow-2xl rounded-2xl overflow-hidden">
 
         {{-- Kolom Kiri: Logo (Warna Coklat Tua) --}}
-        <div class="hidden md:flex flex-col items-center justify-center w-1/2 p-12 bg-primary text-white">
+        <div class="hidden md:flex flex-col items-center justify-center w-1/2 p-12 bg-primary/80 text-white">
             <div class="p-4 rounded-full">
                 {{-- Ganti SVG di bawah dengan logo 'DA' atau 'MA' yang Anda miliki --}}
-                <img src="/images/logo.png" alt="Logo Villa Management">
+                <img src="/images/logodua.png" alt="Logo Villa Management">
             </div>
         </div>
 

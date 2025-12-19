@@ -20,10 +20,22 @@ class Pendapatan extends Component
     // --- Properti Villa Aktif ---
     public $activeVillaId; 
     public $activeVillaName;
+    public $isEditMode = false; // Flag untuk tahu apakah sedang mode Edit
+    public $pendapatanId = null; // ID data yang sedang diedit
 
+    
     // --- Properti Form Input (CREATE) ---
     // ... (Properti jenisPendapatan, nominal, tanggal, metodePembayaran tetap sama) ...
-    #[Rule('required')] public $jenisPendapatan = 'sewa'; // Set default yang valid
+    public $category_id;
+    public $is_room = false;
+
+    // Field Room
+    public $check_in, $check_out, $nights = 1, $price_per_night = 0;
+
+    // Field Item Umum
+    public $item_name, $qty = 1, $price_per_item = 0;
+
+    public $keterangan;
     #[Rule('required|numeric|min:1')] public $nominal;
     public $tanggal; // Akan diset di mount
     #[Rule('required')] public $metodePembayaran = 'transfer'; // Set default yang valid
@@ -60,6 +72,9 @@ class Pendapatan extends Component
     public $ringkasanAllTime = 0;
     public $ringkasanTotalFilter = 0; 
 
+    public $filterCategory = ''; 
+    public $ringkasanTotalPerKategori = 0;
+
     public function mount()
     {
         // ... (Logika Cek Villa Aktif tetap sama) ...
@@ -86,68 +101,222 @@ class Pendapatan extends Component
 
         $this->hitungRingkasan();
     }
-    
+
+    public function updatedCategoryId($value)
+    {
+        $category = \App\Models\Category::find($value);
+        if ($category) {
+            $this->is_room = str_contains(strtolower($category->name), 'room');
+        } else {
+            $this->is_room = false;
+        }
+        $this->hitungNominal();
+    }
+
+
+
+    public function resetForm()
+    {
+        // 1. Reset field utama dan flag mode edit
+        $this->reset([
+            'category_id', 
+            'nominal', 
+            'pendapatanId', 
+            'isEditMode', 
+            'keterangan',
+            'is_room'
+        ]);
+
+        // 2. Reset field khusus Room
+        $this->reset([
+            'check_in', 
+            'check_out', 
+            'nights', 
+            'price_per_night'
+        ]);
+
+        // 3. Reset field khusus Item/Layanan
+        $this->reset([
+            'item_name', 
+            'qty', 
+            'price_per_item'
+        ]);
+
+        // 4. Set nilai default untuk field yang tidak boleh kosong
+        $this->tanggal = now()->format('Y-m-d');
+        $this->metodePembayaran = 'transfer';
+        $this->nights = 1;
+        $this->qty = 1;
+        $this->nominal = 0;
+    }
+        
+
     public function savePendapatan()
     {
-        // Pastikan Anda memvalidasi semua field
         $this->validate([
-            'jenisPendapatan' => 'required',
+            'category_id' => 'required',
             'nominal' => 'required|numeric|min:1',
             'tanggal' => 'required|date',
             'metodePembayaran' => 'required',
         ]);
 
+        $data = [
+            'villa_id'          => $this->activeVillaId,
+            'category_id'       => $this->category_id,
+            'nominal'           => $this->nominal,
+            'tanggal'           => $this->tanggal,
+            'metode_pembayaran' => $this->metodePembayaran,
+            'keterangan'        => $this->keterangan,
+            // Data Room
+            'check_in'          => $this->is_room ? $this->check_in : null,
+            'check_out'         => $this->is_room ? $this->check_out : null,
+            'nights'            => $this->is_room ? $this->nights : null,
+            'price_per_night'   => $this->is_room ? $this->price_per_night : null,
+            // Data Item
+            'item_name'         => !$this->is_room ? $this->item_name : null,
+            'qty'               => !$this->is_room ? $this->qty : null,
+            'price_per_item'    => !$this->is_room ? $this->price_per_item : null,
+        ];
+
         try {
-            PendapatanModel::create([
-                'villa_id' => $this->activeVillaId,
-                'jenis_pendapatan' => $this->jenisPendapatan,
-                'nominal' => $this->nominal,
-                'tanggal' => $this->tanggal,
-                'metode_pembayaran' => $this->metodePembayaran,
-            ]);
-
-            session()->flash('success', 'Data pendapatan berhasil ditambahkan.');
-            
-            // Reset form setelah simpan
-            $this->reset(['jenisPendapatan', 'nominal']); // Reset field yang diinput user
-            
-            // Set ulang default field
-            $this->tanggal = Carbon::now()->format('Y-m-d');
-            $this->metodePembayaran = 'cash';
-
-            // Muat ulang data ringkasan dan tabel
+            if ($this->isEditMode && $this->pendapatanId) {
+                PendapatanModel::findOrFail($this->pendapatanId)->update($data);
+                session()->flash('success', 'Data diperbarui.');
+            } else {
+                PendapatanModel::create($data);
+                session()->flash('success', 'Data ditambahkan.');
+            }
+            $this->resetForm();
             $this->hitungRingkasan();
-            $this->resetPage(); // Reset pagination agar data baru muncul di halaman 1
-
+            $this->resetPage(); // Reset pagination
         } catch (\Exception $e) {
-            session()->flash('error', 'Gagal menyimpan data: ' . $e->getMessage());
+            session()->flash('error', 'Gagal: ' . $e->getMessage());
         }
     }
+
+    public function edit($id)
+{
+    // 1. Ambil data dari database
+    $pendapatan = PendapatanModel::findOrFail($id);
+    
+    // 2. Set Properti Utama
+    $this->pendapatanId = $pendapatan->id;
+    $this->category_id = $pendapatan->category_id; // Menggantikan jenisPendapatan
+    $this->nominal = $pendapatan->nominal;
+    $this->tanggal = Carbon::parse($pendapatan->tanggal)->format('Y-m-d');
+    $this->metodePembayaran = $pendapatan->metode_pembayaran;
+    $this->keterangan = $pendapatan->keterangan;
+
+    // 3. Trigger Deteksi is_room
+    // Kita panggil fungsi ini agar UI form berubah (jadi mode Room atau Item)
+    $this->updatedCategoryId($this->category_id);
+
+    // 4. Set Properti Detail (Field baru)
+    if ($this->is_room) {
+        // Jika data adalah Room
+        $this->check_in = $pendapatan->check_in ? Carbon::parse($pendapatan->check_in)->format('Y-m-d') : null;
+        $this->check_out = $pendapatan->check_out ? Carbon::parse($pendapatan->check_out)->format('Y-m-d') : null;
+        $this->nights = $pendapatan->nights;
+        $this->price_per_night = $pendapatan->price_per_night;
+    } else {
+        // Jika data adalah Item Umum (Laundry, dll)
+        $this->item_name = $pendapatan->item_name;
+        $this->qty = $pendapatan->qty;
+        $this->price_per_item = $pendapatan->price_per_item;
+    }
+    
+    $this->isEditMode = true;
+
+    // 5. Scroll ke atas
+    $this->js('window.scrollTo({top: 0, behavior: "smooth"})');
+}
+
+      public function resetFilter()
+    {
+        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory']);
+
+        $currentYear = now()->year;
+        for ($i = 0; $i < 5; $i++) {
+            $year = $currentYear - $i;
+            $this->listTahun[$year] = $year;
+        }
+
+        $this->filterBulan = now()->format('m'); // '01'..'12'
+        $this->filterTahun = $currentYear;
+
+        $this->hitungRingkasan(); 
+        $this->resetPage(); 
+    }
+
+
+
+    public function delete($id)
+    {
+       
+        try {
+            PendapatanModel::findOrFail($id)->delete();
+            session()->flash('success', 'Data pendapatan berhasil dihapus.');
+            $this->hitungRingkasan();
+            $this->resetPage();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menghapus data: ' . $e->getMessage());
+        }
+    }
+
+    private function hitungNominal()
+    {
+        if ($this->is_room) {
+            $this->nominal = (int)$this->nights * (float)$this->price_per_night;
+        } else {
+            $this->nominal = (int)$this->qty * (float)$this->price_per_item;
+        }
+    }
+
+    
 
     // BARU: Reset pagination saat filter diubah
     public function updated($propertyName)
     {
-        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate'])) {
+        // Reset pagination jika filter berubah (kode lama Anda)
+        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory'])) {
             $this->resetPage();
+            $this->hitungRingkasan(); // <--- Sangat Penting!
         }
+        
+        // Hitung nominal otomatis
+        $this->hitungNominal();
     }
 
-    private function hitungRingkasan()
-    {
-        // ... (Logika ringkasan Bulan Ini, Bulan Lalu, All Time tetap sama) ...
-        if (!$this->activeVillaId) { return; }
 
-        $bulanIni = now()->format('m');
-        $hariIni = now()->toDateString(); 
-        $baseQuery = PendapatanModel::where('villa_id', $this->activeVillaId);
 
-        $this->ringkasanBulanIni = $baseQuery->clone()->whereMonth('tanggal', $bulanIni)->sum('nominal');
-        $this->ringkasanHariIni = $baseQuery->clone()->whereDate('tanggal', $hariIni)->sum('nominal');
-        $this->ringkasanAllTime = $baseQuery->clone()->sum('nominal');
+private function hitungRingkasan()
+{
+    if (!$this->activeVillaId) { return; }
 
-        // BARU: Hitung Total Berdasarkan Filter
-        $this->ringkasanTotalFilter = $this->applyFilter($baseQuery)->sum('nominal');
-    }
+    $bulanIni = now()->format('m');
+    $tahunIni = now()->year;
+    $hariIni = now()->toDateString(); 
+    
+    // Base query agar kita tidak menulis ulang where villa_id
+    $baseQuery = PendapatanModel::where('villa_id', $this->activeVillaId);
+
+    // 1. Ringkasan Statis (Tetap, tidak terpengaruh filter)
+    $this->ringkasanBulanIni = $baseQuery->clone()
+        ->whereMonth('tanggal', $bulanIni)
+        ->whereYear('tanggal', $tahunIni) // Tambahkan tahun agar tidak menjumlahkan bulan sama di tahun lalu
+        ->sum('nominal');
+
+    $this->ringkasanHariIni = $baseQuery->clone()
+        ->whereDate('tanggal', $hariIni)
+        ->sum('nominal');
+
+    $this->ringkasanAllTime = $baseQuery->clone()
+        ->sum('nominal');
+
+    // 2. Ringkasan Dinamis (Mengikuti Filter: Bulan, Tahun, Tanggal, DAN Kategori)
+    // Pastikan selalu gunakan clone() sebelum applyFilter agar baseQuery tetap bersih
+    $this->ringkasanTotalFilter = $this->applyFilter($baseQuery->clone())->sum('nominal');
+}
     
     // BARU: Method untuk menerapkan semua filter ke query
     private function applyFilter($query)
@@ -168,6 +337,10 @@ class Pendapatan extends Component
             $query->whereDate('tanggal', '<=', $this->filterEndDate);
         }
 
+        if ($this->filterCategory) {
+            $query->where('category_id', $this->filterCategory);
+        }
+
         return $query;
     }
 
@@ -183,11 +356,12 @@ class Pendapatan extends Component
     private function getExportParams()
     {
         return [
-            'villa_id' => $this->activeVillaId,
-            'bulan' => $this->filterBulan,
-            'tahun' => $this->filterTahun,
-            'start' => $this->filterStartDate,
-            'end' => $this->filterEndDate,
+            'villa_id'   => $this->activeVillaId,
+            'bulan'      => $this->filterBulan,
+            'tahun'      => $this->filterTahun,
+            'start'      => $this->filterStartDate,
+            'end'        => $this->filterEndDate,
+            'category'   => $this->filterCategory, // Tambahkan ini
         ];
     }
 
@@ -221,22 +395,14 @@ class Pendapatan extends Component
 
     public function render()
     {
-        // 1. Dapatkan Base Query
-        $pendapatanQuery = PendapatanModel::with('villa')
+        $pendapatanQuery = PendapatanModel::with(['villa', 'category'])
             ->where('villa_id', $this->activeVillaId);
 
-        // 2. Terapkan Filter
-        $pendapatanFiltered = $this->applyFilter($pendapatanQuery)
-            ->latest()
-            ->paginate($this->perPage); // <-- Gunakan pagination
-
-        // 3. Pastikan ringkasanTotalFilter di-update setiap kali render (jika ada perubahan filter)
-        // Kita panggil ulang hitungRingkasan() agar ringkasanTotalFilter selalu fresh
-        $this->hitungRingkasan(); 
-
         return view('livewire.master.pendapatan', [
-            'dataPendapatan' => $pendapatanFiltered, // Mengganti dataPendapatanTerbaru
+            'dataPendapatan' => $this->applyFilter($pendapatanQuery)->latest()->paginate($this->perPage),
+            'categories' => \App\Models\Category::where('type', 'income')->get(), // Tambahkan ini
         ]);
     }
+
 }
 

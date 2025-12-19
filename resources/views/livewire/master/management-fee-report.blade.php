@@ -17,7 +17,7 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <h1 class="text-3xl font-extrabold text-slate-800 flex items-center gap-3">
-                Laporan Fee Manajemen
+                Laporan <span class="text-amber-600">Fee Manajemen</span>
             </h1>
             <p class="text-sm text-slate-500 mt-1">
                 Ringkasan dan detail fee manajemen villa
@@ -158,7 +158,7 @@
                     @foreach ($reports as $report)
                     <tr class="hover:bg-slate-50">
                         <td class="px-6 py-4 font-medium text-slate-800">{{ $report['name'] }}</td>
-                        <td class="px-6 py-4 text-right">Rp {{ number_format($report['sisa_kotor'], 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 text-right">Rp {{ number_format($report['laba_kotor'], 0, ',', '.') }}</td>
                         <td class="px-6 py-4 text-center font-semibold text-amber-600">{{ $report['fee_percent'] }}%</td>
                         <td class="px-6 py-4 text-right font-extrabold text-amber-800">
                             Rp {{ number_format($report['fee_amount'], 0, ',', '.') }}
