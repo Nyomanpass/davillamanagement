@@ -6,25 +6,35 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('pendapatan', function (Blueprint $table) {
+        Schema::create('pendapatans', function (Blueprint $table) {
             $table->id();
             $table->foreignId('villa_id')->constrained('villas')->onDelete('cascade');
-            $table->string('jenis_pendapatan'); 
-            $table->decimal('nominal', 15, 2);
+            
+            // Relasi ke Category
+            $table->foreignId('category_id')->constrained('categories')->onDelete('cascade');
+            
+            // Kolom Dinamis untuk Room
+            $table->date('check_in')->nullable();
+            $table->date('check_out')->nullable();
+            $table->integer('nights')->nullable();
+            $table->decimal('price_per_night', 15, 2)->nullable();
+
+            // Kolom Dinamis untuk Item Umum (Laundry, Breakfast, dll)
+            $table->string('item_name')->nullable(); 
+            $table->integer('qty')->nullable();
+            $table->decimal('price_per_item', 15, 2)->nullable();
+
+            // Kolom Utama
+            $table->decimal('nominal', 15, 2); // Ini Total Akhir
             $table->date('tanggal'); 
             $table->string('metode_pembayaran'); 
+            $table->text('keterangan')->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('pendapatans');

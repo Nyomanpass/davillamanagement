@@ -87,78 +87,111 @@ class Laporan extends Component
   
 
     public function generateReport()
-    {
-        if (!$this->activeVillaId || !$this->selectedYear) {
-            $this->reportData = [];
-            return;
-        }
-
-        $villa = Villa::findOrFail($this->activeVillaId);
-        $this->villaDetail = $villa;
-
-       
-
-        // Mode TAHUNAN
-        if ($this->filterMode === 'yearly') {
-            $startOfPeriod = Carbon::createFromDate($this->selectedYear, 1, 1)->startOfYear();
-            $endOfPeriod = $startOfPeriod->copy()->endOfYear();
-            $periodeFormat = 'Y'; // Format hanya tahun
-        } 
-        // Mode BULANAN (Default/Lama)
-        else { 
-            // Pastikan bulan terisi di mode bulanan
-            if (!$this->selectedMonth) {
-                $this->reportData = [];
-                return;
-            }
-            $startOfPeriod = Carbon::createFromDate($this->selectedYear, $this->selectedMonth, 1)->startOfMonth();
-            $endOfPeriod = $startOfPeriod->copy()->endOfMonth();
-            $periodeFormat = 'F Y'; // Format Bulan dan Tahun
-        }
-
-
-        // 2. Query Pendapatan dan Pengeluaran (Menggunakan activeVillaId)
-        $totalPendapatan = Pendapatan::where('villa_id', $this->activeVillaId)
-            ->whereBetween('tanggal', [$startOfPeriod, $endOfPeriod])
-            ->sum('nominal');
-
-        $totalPengeluaran = Pengeluaran::where('villa_id', $this->activeVillaId)
-            ->whereBetween('tanggal', [$startOfPeriod, $endOfPeriod])
-            ->sum('nominal');
-
-        // 3. Lakukan Perhitungan Bisnis (Logika perhitungan tetap sama)
-        // ... (Logika perhitungan tetap sama) ...
-        $pendapatanBersih = $totalPendapatan - $totalPengeluaran;
-
-        $serviceKaryawanPercentage = $villa->service_karyawan / 100;
-        $serviceKaryawanNominal = $pendapatanBersih * $serviceKaryawanPercentage;
-
-        $pendapatanKotor = $pendapatanBersih - $serviceKaryawanNominal;
-
-        $feeManajemenPercentage = $villa->fee_manajemen / 100;
-        $feeManajemenNominal = $pendapatanKotor * $feeManajemenPercentage;
-
-        $pendapatanOwner = $pendapatanKotor - $feeManajemenNominal;
-        // --- Akhir Logika Perhitungan ---
-
-        // Simpan Hasil
-        $this->reportData = [
-            // ... (data hasil perhitungan tetap sama) ...
-            'totalPendapatan' => $totalPendapatan,
-            'totalPengeluaran' => $totalPengeluaran,
-            'pendapatanBersih' => $pendapatanBersih,
-            'serviceKaryawanNominal' => $serviceKaryawanNominal,
-            'serviceKaryawanPercentage' => $villa->service_karyawan,
-            'pendapatanKotor' => $pendapatanKotor,
-            'feeManajemenNominal' => $feeManajemenNominal,
-            'feeManajemenPercentage' => $villa->fee_manajemen,
-            'pendapatanOwner' => $pendapatanOwner,
-            // *** Perubahan di sini untuk periode ***
-            'periode' => $startOfPeriod->translatedFormat($periodeFormat),
-        ];
-
-        $this->dispatch('report-data-updated', data: $this->reportData);
+{
+    if (!$this->activeVillaId || !$this->selectedYear) {
+        $this->reportData = [];
+        return;
     }
+
+    // Load villa beserta kategori khusus yang sudah dicentang di setting
+    $villa = Villa::with('specialCategories')->findOrFail($this->activeVillaId);
+    $this->villaDetail = $villa;
+
+    // Ambil daftar ID kategori khusus untuk villa ini
+    $specialCategoryIds = $villa->specialCategories->pluck('id')->toArray();
+
+    // 1. Tentukan Periode Utama
+    if ($this->filterMode === 'yearly') {
+        $monthsToCalculate = range(1, 12);
+        $periodeFormat = 'Y';
+        $startOfPeriod = Carbon::createFromDate($this->selectedYear, 1, 1)->startOfYear();
+    } else {
+        if (!$this->selectedMonth) { $this->reportData = []; return; }
+        $monthsToCalculate = [(int)$this->selectedMonth];
+        $periodeFormat = 'F Y';
+        $startOfPeriod = Carbon::createFromDate($this->selectedYear, $this->selectedMonth, 1)->startOfMonth();
+    }
+
+    $totals = [
+        'pendapatanKhusus' => 0, 'pengeluaranKhusus' => 0,
+        'pendapatanUmum' => 0, 'pengeluaranUmum' => 0,
+        'serviceKaryawanNominal' => 0, 'feeManajemenNominal' => 0,
+        'pendapatanKotor' => 0, 'pendapatanOwner' => 0
+    ];
+
+    foreach ($monthsToCalculate as $month) {
+        $currentStart = Carbon::createFromDate($this->selectedYear, $month, 1)->startOfMonth();
+        $currentEnd = $currentStart->copy()->endOfMonth();
+
+        // Ambil History Fee
+        $history = \App\Models\VillaFeeHistory::where('villa_id', $this->activeVillaId)
+            ->where('mulai_berlaku', '<=', $currentStart->format('Y-m-d'))
+            ->orderBy('mulai_berlaku', 'desc')
+            ->first();
+
+        $feeService = $history ? $history->service_karyawan : $villa->service_karyawan;
+        $feeManaj = $history ? $history->fee_manajemen : $villa->fee_manajemen;
+
+        // --- QUERY PENDAPATAN & PENGELUARAN DINAMIS ---
+        
+        // Data Khusus (Berdasarkan Kategori yang dicentang di Setting)
+        $pKhusus = Pendapatan::where('villa_id', $this->activeVillaId)
+            ->whereBetween('tanggal', [$currentStart, $currentEnd])
+            ->whereIn('category_id', $specialCategoryIds) // Menggunakan ID hasil centang
+            ->sum('nominal');
+
+        $exKhusus = Pengeluaran::where('villa_id', $this->activeVillaId)
+            ->whereBetween('tanggal', [$currentStart, $currentEnd])
+            ->whereIn('category_id', $specialCategoryIds)
+            ->sum('nominal');
+
+        // Data Umum (Semua yang TIDAK dicentang di Setting)
+        $pUmum = Pendapatan::where('villa_id', $this->activeVillaId)
+            ->whereBetween('tanggal', [$currentStart, $currentEnd])
+            ->whereNotIn('category_id', $specialCategoryIds)
+            ->sum('nominal');
+
+        $exUmum = Pengeluaran::where('villa_id', $this->activeVillaId)
+            ->whereBetween('tanggal', [$currentStart, $currentEnd])
+            ->whereNotIn('category_id', $specialCategoryIds)
+            ->sum('nominal');
+
+        // Logika Hitung (Sama seperti sebelumnya)
+        $mKhusus = $pKhusus - $exKhusus;
+        $sNominal = $mKhusus > 0 ? $mKhusus * ($feeService / 100) : 0;
+        $pKotor = ($mKhusus - $sNominal) + ($pUmum - $exUmum);
+        $fNominal = $pKotor * ($feeManaj / 100);
+
+        // Akumulasi Totals
+        $totals['pendapatanKhusus'] += $pKhusus;
+        $totals['pengeluaranKhusus'] += $exKhusus;
+        $totals['pendapatanUmum'] += $pUmum;
+        $totals['pengeluaranUmum'] += $exUmum;
+        $totals['serviceKaryawanNominal'] += $sNominal;
+        $totals['feeManajemenNominal'] += $fNominal;
+        $totals['pendapatanKotor'] += $pKotor;
+        $totals['pendapatanOwner'] += ($pKotor - $fNominal);
+    }
+
+    $this->reportData = [
+        'totalPendapatan'           => $totals['pendapatanKhusus'] + $totals['pendapatanUmum'],
+        'totalPengeluaran'          => $totals['pengeluaranKhusus'] + $totals['pengeluaranUmum'],
+        'pendapatanKhusus'          => $totals['pendapatanKhusus'],
+        'pengeluaranKhusus'         => $totals['pengeluaranKhusus'],
+        'marginKhusus'              => $totals['pendapatanKhusus'] - $totals['pengeluaranKhusus'],
+        'serviceKaryawanNominal'    => $totals['serviceKaryawanNominal'],
+        'serviceKaryawanPercentage' => $this->filterMode === 'monthly' ? $feeService : 'Variatif',
+        'pendapatanUmum'            => $totals['pendapatanUmum'],
+        'pengeluaranUmum'           => $totals['pengeluaranUmum'],
+        'pendapatanKotor'           => $totals['pendapatanKotor'],
+        'feeManajemenNominal'       => $totals['feeManajemenNominal'],
+        'feeManajemenPercentage'    => $this->filterMode === 'monthly' ? $feeManaj : 'Variatif',
+        'pendapatanOwner'           => $totals['pendapatanOwner'],
+        'periode'                   => $startOfPeriod->translatedFormat($periodeFormat),
+    ];
+
+    $this->dispatch('report-data-updated', data: $this->reportData);
+}
 
     public function exportExcel()
     {

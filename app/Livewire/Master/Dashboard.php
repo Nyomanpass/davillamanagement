@@ -8,6 +8,7 @@ use App\Models\Villa;
 use App\Models\Pendapatan;
 use App\Models\Pengeluaran;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 #[Layout('layouts.app')]
 class Dashboard extends Component
@@ -23,22 +24,51 @@ class Dashboard extends Component
     public $pengeluaranHariIni = 0;
     public $totalTransaksi = 0;
 
-    // Data untuk Grafik (jika data bulanan sudah siap)
-    // public $monthlyPendapatan = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    // public $monthlyPengeluaran = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+    public $monthlyPendapatan = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    public $monthlyPengeluaran = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-  public function mount()
+    public $selectedYear;
+    public $listTahun = [];
+
+    public function mount()
     {
-        $this->listVilla = Villa::all();
-        $this->villa_id = session('villa_id');
+        // 1. Inisialisasi Filter Tahun (WAJIB TAMBAHAN)
+        $this->selectedYear = now()->year;
+        $currentYear = now()->year;
+        for ($i = 0; $i < 5; $i++) {
+            $year = $currentYear - $i;
+            $this->listTahun[$year] = $year;
+        }
 
+        // 2. Logika Villa (Kode Anda Sebelumnya)
+        $user = Auth::user();
+        $this->listVilla = Villa::all();
+        
+        $sessionId = session('villa_id');
+
+        if ($user && $user->villa_id) {
+            $this->villa_id = $user->villa_id;
+            session(['villa_id' => $user->villa_id]);
+        } 
+        elseif (!empty($sessionId)) {
+            $this->villa_id = $sessionId;
+        } else {
+            $this->villa_id = null;
+        }
+
+        // 3. Muat Data & Grafik
         $this->loadSummary();
         
-        // <<< KUNCI PERBAIKAN REFRESH >>>
-        // Panggil dispatch untuk mengirim data chart (yang sudah difilter session)
-        // segera setelah mount() selesai.
-        $this->dispatchChartsData(); 
+        if ($this->villa_id) {
+            $this->dispatchChartsData(); 
+        }
+    }
+        
+    public function updatedSelectedYear()
+    {
+        $this->loadSummary();
+        $this->dispatchChartsData();
     }
 
     public function pilihVilla()
@@ -51,52 +81,69 @@ class Dashboard extends Component
         
         // 3. Panggil dispatch saat filter berubah
         $this->dispatchChartsData();
+        $this->js('window.location.reload()');
+       
         // Ini mengirim event ke komponen ActiveVillaHeader
     $this->dispatch('villaSelected', $this->villa_id);
     }
 
+
     public function dispatchChartsData()
-    {
-        // Mengirim data payload yang diperlukan chart
-        $this->dispatch('charts-data-updated', [
-            'data' => [
-                'pendapatan' => $this->totalPendapatan,
-                'pengeluaran' => $this->totalPengeluaran,
-                // Tambahkan data line chart jika sudah diimplementasikan
-            ]
-        ]);
-    }
+{
+    $this->dispatch('charts-data-updated', data: [
+        'pendapatan' => (float) $this->totalPendapatan,
+        'pengeluaran' => (float) $this->totalPengeluaran,
+        'lineData' => [
+            // Gunakan array_values untuk memastikan formatnya array [0,1,2..] bukan object {0:x, 1:y}
+            'pendapatan' => array_values($this->monthlyPendapatan), 
+            'pengeluaran' => array_values($this->monthlyPengeluaran),
+        ],
+    ]);
+}
+
+    
+
 
     public function loadSummary()
-    {
-        // --- Inisialisasi Query Builders ---
-        $pendapatanQuery = Pendapatan::query();
-        $pengeluaranQuery = Pengeluaran::query();
-        $pendapatanHarianQuery = Pendapatan::query();
-        $pengeluaranHarianQuery = Pengeluaran::query();
-        
-        
-        if ($this->villa_id) {
-            $pendapatanQuery->where('villa_id', $this->villa_id);
-            $pengeluaranQuery->where('villa_id', $this->villa_id);
-            $pendapatanHarianQuery->where('villa_id', $this->villa_id);
-            $pengeluaranHarianQuery->where('villa_id', $this->villa_id);
-        }
+{
+    // Gunakan zona waktu Bali untuk filter "Hari Ini"
+    $todayBali = now()->timezone('Asia/Makassar')->format('Y-m-d');
 
-        // --- Ambil Data ---
-        $this->totalVilla = Villa::count();
-        $this->totalPendapatan = $pendapatanQuery->sum('nominal');
-        $this->totalPengeluaran = $pengeluaranQuery->sum('nominal');
-        
-        // Hari Ini
-        $this->pendapatanHariIni = $pendapatanHarianQuery->whereDate('tanggal', now())->sum('nominal');
-        $this->pengeluaranHariIni = $pengeluaranHarianQuery->whereDate('tanggal', now())->sum('nominal');
-        
-        // Transaksi total
-        $this->totalTransaksi = $pendapatanQuery->count() + $pengeluaranQuery->count();
-
-        // Jika Anda mengambil data bulanan, implementasi logikanya di sini
+    // Query Dasar difilter berdasarkan Tahun yang dipilih
+    $pendapatanQuery = Pendapatan::whereYear('tanggal', $this->selectedYear);
+    $pengeluaranQuery = Pengeluaran::whereYear('tanggal', $this->selectedYear);
+    
+    if ($this->villa_id) {
+        $pendapatanQuery->where('villa_id', $this->villa_id);
+        $pengeluaranQuery->where('villa_id', $this->villa_id);
     }
+
+    // KPI Summary (Tergantung Tahun)
+    $this->totalPendapatan = (float) $pendapatanQuery->sum('nominal');
+    $this->totalPengeluaran = (float) $pengeluaranQuery->sum('nominal');
+    $this->totalTransaksi = $pendapatanQuery->count() + $pengeluaranQuery->count();
+
+    // KPI Harian (Tetap hari ini, tapi difilter Villa)
+    $this->pendapatanHariIni = Pendapatan::when($this->villa_id, fn($q) => $q->where('villa_id', $this->villa_id))
+        ->whereDate('tanggal', $todayBali)->sum('nominal');
+    $this->pengeluaranHariIni = Pengeluaran::when($this->villa_id, fn($q) => $q->where('villa_id', $this->villa_id))
+        ->whereDate('tanggal', $todayBali)->sum('nominal');
+
+    // Data Grafik Bulanan (Tergantung Tahun)
+    $rawMonthlyPendapatan = Pendapatan::selectRaw('MONTH(tanggal) as bulan, SUM(nominal) as total')
+        ->whereYear('tanggal', $this->selectedYear)
+        ->when($this->villa_id, fn($q) => $q->where('villa_id', $this->villa_id))
+        ->groupBy('bulan')->pluck('total', 'bulan')->toArray();
+
+    $this->monthlyPendapatan = array_map(fn($m) => $rawMonthlyPendapatan[$m] ?? 0, range(1, 12));
+    
+    $rawMonthlyPengeluaran = Pengeluaran::selectRaw('MONTH(tanggal) as bulan, SUM(nominal) as total')
+        ->whereYear('tanggal', $this->selectedYear)
+        ->when($this->villa_id, fn($q) => $q->where('villa_id', $this->villa_id))
+        ->groupBy('bulan')->pluck('total', 'bulan')->toArray();
+    
+    $this->monthlyPengeluaran = array_map(fn($m) => $rawMonthlyPengeluaran[$m] ?? 0, range(1, 12));
+}
 
     public function render()
     {

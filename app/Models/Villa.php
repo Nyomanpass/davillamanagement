@@ -34,4 +34,16 @@ class Villa extends Model
     {
         return $this->hasMany(Pengeluaran::class);
     }
+
+    public function feeHistories()
+    {
+        // Mengambil riwayat, yang terbaru ditaruh paling atas
+        return $this->hasMany(VillaFeeHistory::class)->orderBy('mulai_berlaku', 'desc');
+    }
+
+    public function specialCategories()
+    {
+        return $this->belongsToMany(Category::class, 'villa_special_categories');
+    }
+    
 }

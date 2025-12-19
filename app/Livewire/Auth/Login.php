@@ -42,7 +42,7 @@ class Login extends Component
         // ================================
 
         // MASTER ADMIN
-        if ($user->role === 'master') {
+        if (in_array($user->role, ['master', 'staf_master'])) { // <--- PERUBAHAN DI SINI
 
             if ($user->villa_id !== null) {
                 Auth::logout();
@@ -72,7 +72,9 @@ class Login extends Component
 
     public function logout()
     {
+        session()->forget('access_code_verified');
         Auth::logout();
+        session()->forget('villa_id');
         return redirect()->route('login');
     }
 }

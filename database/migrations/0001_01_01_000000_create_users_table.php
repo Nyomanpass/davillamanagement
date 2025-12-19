@@ -14,15 +14,21 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('username')->unique(); // login pakai username
+            $table->string('username')->unique(); 
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->unsignedBigInteger('villa_id')->nullable(); 
-            $table->enum('role', ['master', 'owner', 'staf'])->default('owner');
+            $table->unsignedBigInteger('villa_id')->nullable();
+            $table->enum('role', [
+                'master',       
+                'staf_master', 
+                'owner',        
+                'staf'        
+            ])->default('owner');
+            $table->json('permissions')->nullable();
             $table->rememberToken();
             $table->timestamps();
-        });
+    });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

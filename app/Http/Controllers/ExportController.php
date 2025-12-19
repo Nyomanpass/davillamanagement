@@ -13,6 +13,7 @@ use Barryvdh\DomPDF\Facade\Pdf; // Pastikan ini di-import
 use App\Exports\PengeluaranReportExport;
 use App\Exports\LaporanReportExport;
 use Illuminate\Support\Facades\DB;
+use App\Models\Category;
 
 
 class ExportController extends Controller
@@ -22,193 +23,194 @@ class ExportController extends Controller
      */
     private function getFilteredDataFromRequest(Request $request)
     {
-        // Pastikan Anda memvalidasi input jika perlu, tapi fokus pada query
-        
-        $query = Pendapatan::with('villa')
-            ->where('villa_id', $request->villa_id); // Filter wajib berdasarkan villa aktif
-
-        if ($request->bulan) {
-            $query->whereMonth('tanggal', $request->bulan);
-        }
-        if ($request->tahun) {
-            $query->whereYear('tanggal', $request->tahun);
-        }
-        if ($request->start) {
-            $query->whereDate('tanggal', '>=', $request->start);
-        }
-        if ($request->end) {
-            $query->whereDate('tanggal', '<=', $request->end);
-        }
-        
-        return $query->latest()->get();
-    }
-
-    private function getFilteredPengeluaranDataFromRequest(Request $request)
-    {
-        $query = Pengeluaran::with('villa')
+        // 1. Tambahkan 'category' di dalam with()
+        $query = Pendapatan::with(['villa', 'category'])
             ->where('villa_id', $request->villa_id);
 
-        if ($request->bulan) {
+        // 2. Filter Bulan & Tahun
+        if ($request->bulan && $request->bulan !== '') {
             $query->whereMonth('tanggal', $request->bulan);
         }
-        if ($request->tahun) {
+        if ($request->tahun && $request->tahun !== '') {
             $query->whereYear('tanggal', $request->tahun);
         }
+
+        // 3. Filter Range Tanggal
         if ($request->start) {
             $query->whereDate('tanggal', '>=', $request->start);
         }
         if ($request->end) {
             $query->whereDate('tanggal', '<=', $request->end);
         }
+
+        // 4. BARU: Filter berdasarkan Kategori
+        // Sesuai dengan parameter 'category' yang kita kirim dari Livewire
+        if ($request->category && $request->category !== '') {
+            $query->where('category_id', $request->category);
+        }
         
         return $query->latest()->get();
     }
 
+   private function getFilteredPengeluaranDataFromRequest(Request $request)
+{
+    $query = \App\Models\Pengeluaran::query();
 
+    // Filter Villa (Wajib)
+    $query->where('villa_id', $request->villa_id);
 
-    public function pendapatanExcel(Request $request)
-    {
-        $data = $this->getFilteredDataFromRequest($request);
-
-        if ($data->isEmpty()) {
-            return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
-        }
-        
-        // --- 1. Ambil Nama Villa ---
-        $villaId = $request->villa_id;
-        $villa = Villa::find($villaId);
-        $villaName = $villa->nama_villa ?? "Semua Villa";
-
-        $listJenisPendapatan = [ 
-                'sewa' => 'Sewa Villa / Akomodasi',
-                'makanan' => 'Penjualan Makanan',
-                'minuman' => 'Penjualan Minuman',
-                'laundry' => 'Layanan Laundry',
-                // ... (Lengkapi yang lain)
-                'lainnya' => 'Pendapatan Lain-Lain',
-            ];
-            $listMetodePembayaran = [
-                'transfer' => 'Transfer Bank',
-                'cash' => 'Tunai (Cash)',
-            ];
-
-
-        $filename = 'laporan_pendapatan_' . str_replace(' ', '_', $villaName) . '_' . Carbon::now()->format('Ymd_His') . '.xlsx';
-
-        // --- MENGGUNAKAN MAATWEBSITE EXCEL ---
-        return Excel::download(
-            new PendapatanReportExport($data, $villaName, $listJenisPendapatan, $listMetodePembayaran), 
-            $filename
-        );
+    // FIX: Tambahkan filter kategori di sini
+    if ($request->has('category') && $request->category != '') {
+        $query->where('category_id', $request->category);
     }
 
-    public function pengeluaranExcel(Request $request)
-    {
-        // Gunakan helper function Pengeluaran
-        $data = $this->getFilteredPengeluaranDataFromRequest($request);
-
-        if ($data->isEmpty()) {
-            return redirect()->back()->with('error', 'Tidak ada data pengeluaran untuk diekspor.');
-        }
-        
-        $villaId = $request->villa_id;
-        $villa = Villa::find($villaId);
-        $villaName = $villa->nama_villa ?? "Semua Villa";
-
-        // Daftar Jenis Pengeluaran (HARUS SAMA DENGAN DI LIVEWIRE)
-        $listJenisPengeluaran = [
-            'gaji' => 'Gaji Karyawan',
-            'operasional' => 'Biaya Operasional',
-            'marketing' => 'Biaya Marketing',
-            'listrik' => 'Biaya Listrik/Air',
-            'makanan' => 'Belanja Makanan/Bahan',
-            'lainnya' => 'Pengeluaran Lain-Lain',
-        ];
-
-
-        $filename = 'laporan_pengeluaran_' . str_replace(' ', '_', $villaName) . '_' . Carbon::now()->format('Ymd_His') . '.xlsx';
-
-        // --- MENGGUNAKAN EXPORT CLASS UNTUK PENGELUARAN ---
-        return Excel::download(
-            new PengeluaranReportExport($data, $villaName, $listJenisPengeluaran), 
-            $filename
-        );
+    // Filter Bulan & Tahun
+    if ($request->has('bulan') && $request->bulan != '') {
+        $query->whereMonth('tanggal', $request->bulan);
+    }
+    if ($request->has('tahun') && $request->tahun != '') {
+        $query->whereYear('tanggal', $request->tahun);
     }
 
-    public function pengeluaranPdf(Request $request)
-    {
-        // 1. Ambil data Pengeluaran yang sudah difilter
-        // Asumsi: Anda sudah memiliki method getFilteredDataFromRequest yang bisa menerima parameter filter
-        $data = $this->getFilteredPengeluaranDataFromRequest($request, Pengeluaran::class); // Pastikan Model Pengeluaran yang dipakai
-
-        if ($data->isEmpty()) {
-            return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
-        }
-        
-        // 2. Ambil Nama Villa
-        $villaId = $request->villa_id;
-        $villa = Villa::find($villaId);
-        $villaName = $villa->nama_villa ?? "Villa ID: {$villaId} (Tidak Ditemukan)";
-        
-        // 3. Mendefinisikan list mapping untuk Pengeluaran
-        // Catatan: Pengeluaran umumnya hanya punya Jenis Pengeluaran, tidak ada Metode Pembayaran
-        $listJenisPengeluaran = [
-            'gaji' => 'Gaji Karyawan',
-            'operasional' => 'Biaya Operasional',
-            'marketing' => 'Biaya Marketing',
-            'listrik' => 'Biaya Listrik/Air',
-            'makanan' => 'Belanja Makanan/Bahan',
-            'lainnya' => 'Pengeluaran Lain-Lain',
-        ];
-
-        // 4. Load View PDF dan Kirim Data
-        $pdf = Pdf::loadView('exports.pengeluaran_pdf', [ // Ganti ke view pengeluaran_pdf
-            'dataPengeluaran' => $data, // Ganti nama variabel data
-            'filterParams' => $request->all(), 
-            'listJenisPengeluaran' => $listJenisPengeluaran,
-            'villaName' => $villaName,
-        ])
-        ->setPaper('a4', 'landscape'); // Format Landscape biasanya lebih baik untuk laporan tabel lebar
-
-        // 5. Download File
-        $filename = 'pengeluaran_filtered_' . str_replace(' ', '_', $villaName) . '_' . Carbon::now()->format('Ymd_His') . '.pdf';
-        return $pdf->download($filename); 
+    // Filter Range Tanggal
+    if ($request->has('start') && $request->start != '') {
+        $query->whereDate('tanggal', '>=', $request->start);
     }
+    if ($request->has('end') && $request->end != '') {
+        $query->whereDate('tanggal', '<=', $request->end);
+    }
+
+    return $query->latest()->get();
+}
+
+
+public function pendapatanExcel(Request $request)
+{
+    $data = $this->getFilteredDataFromRequest($request);
+
+    if ($data->isEmpty()) {
+        return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
+    }
+    
+    $villa = Villa::find($request->villa_id);
+    $villaName = $villa->nama_villa ?? "Semua Villa";
+
+    $categoryName = "Semua Kategori";
+    if ($request->category) {
+        $cat = \App\Models\Category::find($request->category);
+        $categoryName = $cat ? $cat->name : "Semua Kategori";
+    }
+
+    $listMetodePembayaran = ['transfer' => 'Transfer Bank', 'cash' => 'Tunai (Cash)'];
+
+    $filename = 'Laporan_Pendapatan_' . str_replace(' ', '_', $villaName) . '_' . now()->format('YmdHis') . '.xlsx';
+
+    // Kirim $request->all() sebagai parameter terakhir (filterParams)
+    return Excel::download(
+        new PendapatanReportExport($data, $villaName, $listMetodePembayaran, $categoryName, $request->all()), 
+        $filename
+    );
+}
+public function pengeluaranExcel(Request $request)
+{
+    $data = $this->getFilteredPengeluaranDataFromRequest($request)->load('category');
+
+    if ($data->isEmpty()) {
+        return redirect()->back()->with('error', 'Tidak ada data pengeluaran untuk diekspor.');
+    }
+    
+    $villa = Villa::find($request->villa_id);
+    $villaName = $villa->nama_villa ?? "Semua Villa";
+    
+    $categoryName = 'Semua Kategori';
+    if ($request->category) {
+        $cat = \App\Models\Category::find($request->category);
+        $categoryName = $cat ? $cat->name : 'Semua Kategori';
+    }
+
+    $filename = 'Laporan_Pengeluaran_' . str_replace(' ', '_', $villaName) . '_' . now()->format('Ymd_His') . '.xlsx';
+
+    // Sertakan $request->all() untuk parameter filterParams
+    return Excel::download(
+        new PengeluaranReportExport($data, $villaName, $categoryName, $request->all()), 
+        $filename
+    );
+}
+
+public function pengeluaranPdf(Request $request)
+{
+    // 1. Ambil data dengan filter kategori yang sudah diperbaiki
+    $data = $this->getFilteredPengeluaranDataFromRequest($request)->load('category');
+
+    if ($data->isEmpty()) {
+        return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
+    }
+    
+    // 2. Data Villa & Nama Kategori untuk Judul
+    $villa = Villa::find($request->villa_id);
+    $villaName = $villa->nama_villa ?? "Semua Villa";
+    
+    $categoryName = 'Semua Kategori';
+    if ($request->category) {
+        $cat = \App\Models\Category::find($request->category);
+        $categoryName = $cat ? $cat->name : 'Semua Kategori';
+    }
+
+    // 3. Load View PDF - DISESUAIKAN AGAR SAMA DENGAN PENDAPATAN
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.pengeluaran_pdf', [
+        'dataPengeluaran' => $data,
+        'villaName' => $villaName,
+        'categoryName' => $categoryName,
+        // UBAH dateRange menjadi filterParams agar terbaca oleh Blade
+        'filterParams' => [
+            'start' => $request->start,
+            'end'   => $request->end,
+            'bulan' => $request->bulan,
+            'tahun' => $request->tahun,
+        ]
+    ])
+    ->setPaper('a4', 'landscape');
+
+    $filename = 'Laporan_Pengeluaran_' . str_replace(' ', '_', $villaName) . '_' . now()->format('Ymd_His') . '.pdf';
+    return $pdf->download($filename); 
+}
 
     /**
      * Export data ke format PDF.
      */
     public function pendapatanPdf(Request $request)
-    {
-        // ... (Logika getFilteredDataFromRequest) ...
-        $data = $this->getFilteredDataFromRequest($request);
+{
+    $data = $this->getFilteredDataFromRequest($request);
 
-        if ($data->isEmpty()) {
-            return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
-        }
-        
-        // --- AMBIL NAMA VILLA BERDASARKAN ID YANG ADA DI REQUEST ---
-        $villaId = $request->villa_id;
-        $villa = Villa::find($villaId);
-        $villaName = $villa->nama_villa ?? "Villa ID: {$villaId} (Tidak Ditemukan)";
-        
-        // PENTING: Mendefinisikan list mapping...
-        $listJenisPendapatan = [ /* ... LENGKAPI DAFTAR INI ... */ ];
-        $listMetodePembayaran = [ /* ... LENGKAPI DAFTAR INI ... */ ];
-
-        // --- KIRIM NAMA VILLA KE VIEW ---
-        $pdf = Pdf::loadView('exports.pendapatan_pdf', [
-            'dataPendapatan' => $data,
-            'filterParams' => $request->all(), 
-            'listJenisPendapatan' => $listJenisPendapatan,
-            'listMetodePembayaran' => $listMetodePembayaran,
-            'villaName' => $villaName, // <-- Variabel BARU
-        ]);
-
-        // ... (Logika download) ...
-        $filename = 'pendapatan_filtered_' . str_replace(' ', '_', $villaName) . '_' . Carbon::now()->format('Ymd_His') . '.pdf';
-        return $pdf->download($filename); 
+    if ($data->isEmpty()) {
+        return redirect()->back()->with('error', 'Tidak ada data untuk diekspor.');
     }
+    
+    $villa = Villa::find($request->villa_id);
+    $villaName = $villa->nama_villa ?? "Villa Tidak Ditemukan";
+
+    $categoryName = "Semua Kategori";
+    if ($request->category) {
+        $cat = \App\Models\Category::find($request->category);
+        $categoryName = $cat ? $cat->name : "Semua Kategori";
+    }
+
+    $listMetodePembayaran = [
+        'transfer' => 'Transfer Bank',
+        'cash'     => 'Tunai (Cash)',
+    ];
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.pendapatan_pdf', [
+        'dataPendapatan' => $data,
+        'filterParams' => $request->all(), 
+        'listMetodePembayaran' => $listMetodePembayaran,
+        'villaName' => $villaName,
+        'categoryName' => $categoryName,
+    ])->setPaper('a4', 'landscape'); // Menggunakan Landscape agar kolom tidak sesak
+
+    $filename = 'Laporan_Pendapatan_' . str_replace(' ', '_', $villaName) . '_' . now()->format('YmdHis') . '.pdf';
+    return $pdf->download($filename); 
+}
 
 public function laporanExcel(Request $request)
 {
