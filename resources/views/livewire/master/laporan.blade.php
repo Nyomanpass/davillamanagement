@@ -159,7 +159,15 @@
                             <span class="font-medium">Rp {{ number_format($reportData['marginKhusus'], 0, ',', '.') }}</span>
                         </div>
                         <div class="flex justify-between text-sm text-rose-600">
-                            <span>Service Karyawan ({{ $reportData['serviceKaryawanPercentage'] }}%)</span>
+                            <span>
+                                Service Karyawan (
+                                @if(is_numeric($reportData['serviceKaryawanPercentage']))
+                                    {{ (float)$reportData['serviceKaryawanPercentage'] + 0 }}%
+                                @else
+                                    <span class="text-[10px] italic opacity-75">{{ $reportData['serviceKaryawanPercentage'] }}</span>
+                                @endif
+                                )
+                            </span>
                             <span>- Rp {{ number_format($reportData['serviceKaryawanNominal'], 0, ',', '.') }}</span>
                         </div>
                     </div>
@@ -180,7 +188,15 @@
                             <span class="font-bold text-slate-800">Rp {{ number_format($reportData['pendapatanKotor'], 0, ',', '.') }}</span>
                         </div>
                         <div class="flex justify-between text-sm text-blue-600">
-                            <span>Fee Manajemen ({{ $reportData['feeManajemenPercentage'] }}%)</span>
+                           <span>
+                                Fee Manajemen (
+                                @if(is_numeric($reportData['feeManajemenPercentage']))
+                                    {{ (float)$reportData['feeManajemenPercentage'] + 0 }}%
+                                @else
+                                    <span class="text-[10px] italic opacity-75">{{ $reportData['feeManajemenPercentage'] }}</span>
+                                @endif
+                                )
+                            </span>
                             <span>- Rp {{ number_format($reportData['feeManajemenNominal'], 0, ',', '.') }}</span>
                         </div>
                     </div>

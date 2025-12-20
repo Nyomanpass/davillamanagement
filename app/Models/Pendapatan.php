@@ -16,11 +16,10 @@ class Pendapatan extends Model
 
     protected $fillable = [
         'villa_id', 
+        'jenis_pendapatan', // TAMBAHAN: operasional/non_operasional
         'category_id',     // GANTI: jenis_pendapatan jadi category_id
         'check_in',        // TAMBAHAN: Untuk Room
         'check_out',       // TAMBAHAN: Untuk Room
-        'nights',          // TAMBAHAN: Untuk Room
-        'price_per_night', // TAMBAHAN: Untuk Room
         'item_name',       // TAMBAHAN: Untuk Umum
         'qty',             // TAMBAHAN: Untuk Umum
         'price_per_item',  // TAMBAHAN: Untuk Umum

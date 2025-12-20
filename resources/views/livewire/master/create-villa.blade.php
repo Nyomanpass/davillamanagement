@@ -53,30 +53,50 @@
 
                         {{-- Konfigurasi & Kamar --}}
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                            
+                            {{-- Fee Manajemen --}}
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 text-center block">Fee Manaj. (%)</label>
                                 <div class="relative">
-                                    <input type="number" wire:model="fee_manajemen" class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold">
+                                    {{-- TAMBAHKAN step="0.1" DI SINI --}}
+                                    <input type="number" 
+                                        step="0.1" 
+                                        wire:model="fee_manajemen" 
+                                        placeholder="0.0"
+                                        class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold focus:ring-amber-500 focus:border-amber-500">
                                     <span class="absolute right-3 top-2.5 text-slate-400 text-xs">%</span>
                                 </div>
                                 @error('fee_manajemen') <p class="text-[10px] text-red-500 font-bold text-center">{{ $message }}</p> @enderror
                             </div>
+
+                            {{-- Service Karyawan --}}
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 text-center block">Service Kar. (%)</label>
                                 <div class="relative">
-                                    <input type="number" wire:model="service_karyawan" class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold text-emerald-600">
+                                    {{-- TAMBAHKAN step="0.1" DI SINI --}}
+                                    <input type="number" 
+                                        step="0.1" 
+                                        wire:model="service_karyawan" 
+                                        placeholder="0.0"
+                                        class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold text-emerald-600 focus:ring-emerald-500 focus:border-emerald-500">
                                     <span class="absolute right-3 top-2.5 text-slate-400 text-xs">%</span>
                                 </div>
                                 @error('service_karyawan') <p class="text-[10px] text-red-500 font-bold text-center">{{ $message }}</p> @enderror
                             </div>
+
+                            {{-- Total Kamar --}}
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 text-center block">Total Kamar</label>
                                 <div class="relative">
-                                    <input type="number" wire:model="jumlah_kamar" class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold text-amber-600">
+                                    {{-- Kamar tetap angka bulat, jadi tidak perlu step desimal --}}
+                                    <input type="number" 
+                                        wire:model="jumlah_kamar" 
+                                        class="w-full text-center rounded-xl border-slate-200 text-sm py-2.5 pr-8 font-bold text-amber-600 focus:ring-amber-500 focus:border-amber-500">
                                     <i class="fas fa-bed absolute right-3 top-3 text-slate-300 text-[10px]"></i>
                                 </div>
                                 @error('jumlah_kamar') <p class="text-[10px] text-red-500 font-bold text-center">{{ $message }}</p> @enderror
                             </div>
+
                         </div>
                     </div>
                 </div>

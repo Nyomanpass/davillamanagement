@@ -30,15 +30,15 @@ class Pendapatan extends Component
     public $is_room = false;
 
     // Field Room
-    public $check_in, $check_out, $nights = 1, $price_per_night = 0;
+    public $check_in, $check_out;
 
     // Field Item Umum
     public $item_name, $qty = 1, $price_per_item = 0;
 
     public $keterangan;
-    #[Rule('required|numeric|min:1')] public $nominal;
+    public $nominal = 0; // Inisialisasi awal 0
     public $tanggal; // Akan diset di mount
-    #[Rule('required')] public $metodePembayaran = 'transfer'; // Set default yang valid
+    public $metodePembayaran = 'transfer'; // Hapus #[Rule] di sini, kita pakai manual validate saja
 
     // --- Properti Filter (BARU) ---
     public $filterBulan = ''; // Contoh: '01', '02', 'all'
@@ -46,7 +46,13 @@ class Pendapatan extends Component
     public $filterStartDate = '';
     public $filterEndDate = '';
     public $perPage = 10; // Untuk pagination
-    
+
+    public $jenis_pendapatan = ''; // Kosong agar user wajib pilih
+    public $filterJenisPendapatan = '';
+
+    public $ringkasanOperasionalBulanIni = 0;
+    public $ringkasanNonOperasionalBulanIni = 0;
+        
     // --- Dropdown ---
     public $listJenisPendapatan = [
         'sewa' => 'Sewa Villa',
@@ -102,16 +108,21 @@ class Pendapatan extends Component
         $this->hitungRingkasan();
     }
 
-    public function updatedCategoryId($value)
-    {
-        $category = \App\Models\Category::find($value);
-        if ($category) {
-            $this->is_room = str_contains(strtolower($category->name), 'room');
-        } else {
-            $this->is_room = false;
-        }
+public function updatedCategoryId($value)
+{
+    $category = \App\Models\Category::find($value);
+    if ($category) {
+        $this->is_room = str_contains(strtolower($category->name), 'room');
+    } else {
+        $this->is_room = false;
+    }
+
+    // Jika berubah jadi Room, biarkan nominal apa adanya (atau kosongkan untuk diisi manual)
+    // Jika berubah jadi Item, hitung ulang nominalnya
+    if (!$this->is_room) {
         $this->hitungNominal();
     }
+}
 
 
 
@@ -124,15 +135,15 @@ class Pendapatan extends Component
             'pendapatanId', 
             'isEditMode', 
             'keterangan',
-            'is_room'
+            'is_room',
+            'jenis_pendapatan',
         ]);
 
         // 2. Reset field khusus Room
         $this->reset([
             'check_in', 
             'check_out', 
-            'nights', 
-            'price_per_night'
+            
         ]);
 
         // 3. Reset field khusus Item/Layanan
@@ -145,54 +156,64 @@ class Pendapatan extends Component
         // 4. Set nilai default untuk field yang tidak boleh kosong
         $this->tanggal = now()->format('Y-m-d');
         $this->metodePembayaran = 'transfer';
-        $this->nights = 1;
         $this->qty = 1;
         $this->nominal = 0;
     }
         
 
-    public function savePendapatan()
-    {
-        $this->validate([
-            'category_id' => 'required',
-            'nominal' => 'required|numeric|min:1',
-            'tanggal' => 'required|date',
-            'metodePembayaran' => 'required',
-        ]);
+   public function savePendapatan()
+{
+    // 1. Validasi
 
-        $data = [
-            'villa_id'          => $this->activeVillaId,
-            'category_id'       => $this->category_id,
-            'nominal'           => $this->nominal,
-            'tanggal'           => $this->tanggal,
-            'metode_pembayaran' => $this->metodePembayaran,
-            'keterangan'        => $this->keterangan,
-            // Data Room
-            'check_in'          => $this->is_room ? $this->check_in : null,
-            'check_out'         => $this->is_room ? $this->check_out : null,
-            'nights'            => $this->is_room ? $this->nights : null,
-            'price_per_night'   => $this->is_room ? $this->price_per_night : null,
-            // Data Item
-            'item_name'         => !$this->is_room ? $this->item_name : null,
-            'qty'               => !$this->is_room ? $this->qty : null,
-            'price_per_item'    => !$this->is_room ? $this->price_per_item : null,
-        ];
+    $this->validate([
+        'category_id' => 'required',
+        'jenis_pendapatan' => 'required|in:operasional,non_operasional',
+        'nominal' => 'required|numeric|min:0',
+        'tanggal' => 'required|date',
+        'metodePembayaran' => 'required',
+        // Opsional: Tambahkan validasi tanggal jika Room
+        'check_in' => $this->is_room ? 'required|date' : 'nullable',
+        'check_out' => $this->is_room ? 'required|date|after_or_equal:check_in' : 'nullable',
+    ]);
 
-        try {
-            if ($this->isEditMode && $this->pendapatanId) {
-                PendapatanModel::findOrFail($this->pendapatanId)->update($data);
-                session()->flash('success', 'Data diperbarui.');
-            } else {
-                PendapatanModel::create($data);
-                session()->flash('success', 'Data ditambahkan.');
-            }
-            $this->resetForm();
-            $this->hitungRingkasan();
-            $this->resetPage(); // Reset pagination
-        } catch (\Exception $e) {
-            session()->flash('error', 'Gagal: ' . $e->getMessage());
+    // 2. Mapping Data ke Database
+    $data = [
+        'villa_id'          => $this->activeVillaId,
+        'category_id'       => $this->category_id,
+        'nominal'           => $this->nominal, // Mengambil nilai yang Anda ketik manual
+        'tanggal'           => $this->tanggal,
+        'metode_pembayaran' => $this->metodePembayaran,
+        'keterangan'        => $this->keterangan,
+        'jenis_pendapatan'  => $this->jenis_pendapatan,
+        
+        // Data Room (Nights & Price per night diset null karena inputnya dibuang)
+        'check_in'          => $this->is_room ? $this->check_in : null,
+        'check_out'         => $this->is_room ? $this->check_out : null,
+        
+        // Data Item (Tetap simpan detailnya jika bukan room)
+        'item_name'         => !$this->is_room ? $this->item_name : null,
+        'qty'               => !$this->is_room ? $this->qty : null,
+        'price_per_item'    => !$this->is_room ? $this->price_per_item : null,
+    ];
+
+    try {
+        if ($this->isEditMode && $this->pendapatanId) {
+            PendapatanModel::findOrFail($this->pendapatanId)->update($data);
+            session()->flash('success', 'Data diperbarui.');
+        } else {
+            PendapatanModel::create($data);
+            session()->flash('success', 'Data ditambahkan.');
         }
+
+        $this->resetForm();
+        $this->hitungRingkasan();
+        $this->resetPage(); 
+    } catch (\Exception $e) {
+        // Tambahkan log error untuk memudahkan debugging jika gagal
+        
+        session()->flash('error', 'Gagal: ' . $e->getMessage());
     }
+}
 
     public function edit($id)
 {
@@ -207,6 +228,7 @@ class Pendapatan extends Component
     $this->metodePembayaran = $pendapatan->metode_pembayaran;
     $this->keterangan = $pendapatan->keterangan;
 
+    $this->jenis_pendapatan = $pendapatan->jenis_pendapatan;
     // 3. Trigger Deteksi is_room
     // Kita panggil fungsi ini agar UI form berubah (jadi mode Room atau Item)
     $this->updatedCategoryId($this->category_id);
@@ -216,8 +238,7 @@ class Pendapatan extends Component
         // Jika data adalah Room
         $this->check_in = $pendapatan->check_in ? Carbon::parse($pendapatan->check_in)->format('Y-m-d') : null;
         $this->check_out = $pendapatan->check_out ? Carbon::parse($pendapatan->check_out)->format('Y-m-d') : null;
-        $this->nights = $pendapatan->nights;
-        $this->price_per_night = $pendapatan->price_per_night;
+       
     } else {
         // Jika data adalah Item Umum (Laundry, dll)
         $this->item_name = $pendapatan->item_name;
@@ -263,29 +284,33 @@ class Pendapatan extends Component
         }
     }
 
-    private function hitungNominal()
-    {
-        if ($this->is_room) {
-            $this->nominal = (int)$this->nights * (float)$this->price_per_night;
-        } else {
-            $this->nominal = (int)$this->qty * (float)$this->price_per_item;
-        }
-    }
+private function hitungNominal()
+{
+    // Jika room, JANGAN hitung otomatis agar input manual tidak hilang
+    if ($this->is_room) {
+        return; 
+    } 
+    
+    // Hitung otomatis untuk item umum
+    $this->nominal = (int)($this->qty ?? 0) * (float)($this->price_per_item ?? 0);
+}
 
     
 
-    // BARU: Reset pagination saat filter diubah
-    public function updated($propertyName)
-    {
-        // Reset pagination jika filter berubah (kode lama Anda)
-        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory'])) {
-            $this->resetPage();
-            $this->hitungRingkasan(); // <--- Sangat Penting!
-        }
-        
-        // Hitung nominal otomatis
+public function updated($propertyName)
+{
+    // Filter & Pagination logic
+    if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory'])) {
+        $this->resetPage();
+        $this->hitungRingkasan();
+    }
+    
+    // LOGIC NOMINAL: 
+    // Hanya hitung otomatis jika BUKAN room DAN field yang berubah adalah qty atau price_per_item
+    if (!$this->is_room && in_array($propertyName, ['qty', 'price_per_item'])) {
         $this->hitungNominal();
     }
+}
 
 
 
@@ -339,6 +364,9 @@ private function hitungRingkasan()
 
         if ($this->filterCategory) {
             $query->where('category_id', $this->filterCategory);
+        }
+        if ($this->filterJenisPendapatan) {
+            $query->where('jenis_pendapatan', $this->filterJenisPendapatan);
         }
 
         return $query;

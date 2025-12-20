@@ -16,8 +16,8 @@ return new class extends Migration
             // Menghubungkan ke tabel villas
             $table->foreignId('villa_id')->constrained()->onDelete('cascade');
             
-            $table->unsignedTinyInteger('fee_manajemen')->default(0);
-            $table->unsignedTinyInteger('service_karyawan')->default(0);
+            $table->decimal('fee_manajemen', 4, 1)->default(0);
+            $table->decimal('service_karyawan', 4, 1)->default(0);
             $table->date('mulai_berlaku'); // Tanggal mulai berlakunya fee ini
             
             $table->timestamps();

@@ -70,30 +70,52 @@
                 
                 @if($is_room)
                     {{-- Form Room --}}
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label class="text-xs font-medium text-slate-600">Check In</label>
-                            <input type="date" wire:model.live="check_in" class="w-full px-3 py-2 border rounded-md">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-slate-600">Check Out</label>
-                            <input type="date" wire:model.live="check_out" class="w-full px-3 py-2 border rounded-md">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-slate-600">Total Malam</label>
-                            <input type="number" wire:model.live="nights" class="w-full px-3 py-2 border rounded-md">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-slate-600">Harga / Malam</label>
-                            <input type="number" wire:model.live="price_per_night" class="w-full px-3 py-2 border rounded-md">
-                        </div>
-                    </div>
+                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="text-xs font-medium text-slate-600">Check In</label>
+            <input type="date" wire:model.live="check_in" class="w-full px-3 py-2 border rounded-md">
+        </div>
+        <div>
+            <label class="text-xs font-medium text-slate-600">Check Out</label>
+            <input type="date" wire:model.live="check_out" class="w-full px-3 py-2 border rounded-md">
+        </div>
+        <div>
+            <label class="text-xs font-medium text-slate-600">Total Malam</label>
+        
+                <input type="number" wire:model.live="nights" class="w-full px-3 py-2 border rounded-md">
+            
+        </div>
+        <div>
+           <label class="block text-sm font-bold text-slate-700 mb-1">Jenis Pendapatan</label>
+            <select wire:model="jenis_pendapatan"
+                class="w-full px-4 py-3 rounded-lg border @error('jenis_pendapatan') border-red-500 @else border-slate-300 @enderror bg-white focus:ring-amber-500 font-medium">
+                <option value="">Pilih Jenis Pendapatan</option>
+                <option value="operasional">Operasional</option>
+                <option value="non_operasional">Non-Operasional</option>
+            </select>
+            @error('jenis_pendapatan') 
+                <p class="text-xs text-red-500 mt-1 font-bold">{{ $message }}</p> 
+            @enderror
+        </div>
+    </div>
                 @else
                     {{-- Form Umum --}}
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="text-xs font-medium text-slate-600">Nama Item</label>
                             <input type="text" wire:model="item_name" class="w-full px-3 py-2 border rounded-md">
+                        </div>
+                      <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Jenis Pendapatan</label>
+                            <select wire:model="jenis_pendapatan"
+                                class="w-full px-4 py-3 rounded-lg border @error('jenis_pendapatan') border-red-500 @else border-slate-300 @enderror bg-white focus:ring-amber-500 font-medium">
+                                <option value="">Pilih Jenis Pendapatan</option>
+                                <option value="operasional">Operasional</option>
+                                <option value="non_operasional">Non-Operasional</option>
+                            </select>
+                            @error('jenis_pendapatan') 
+                                <p class="text-xs text-red-500 mt-1 font-bold">{{ $message }}</p> 
+                            @enderror
                         </div>
                         <div>
                             <label class="text-xs font-medium text-slate-600">Qty</label>
@@ -110,13 +132,26 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {{-- Nominal Total (Read Only) --}}
+               {{-- Bagian Nominal Total --}}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1 font-bold text-amber-600">Total Nominal</label>
+                    <label class="block text-sm font-bold text-amber-600 mb-1">
+                        Total Nominal @if($is_room) (Isi Manual) @else (Otomatis) @endif
+                    </label>
                     <div class="relative">
-                        <input type="number" wire:model="nominal" readonly
-                            class="w-full px-4 py-3 bg-slate-100 border border-slate-300 rounded-md font-bold text-xl">
-                        <span class="absolute inset-y-0 right-3 flex items-center text-slate-500">Rp</span>
+                        <input type="number" 
+                            wire:model="nominal" 
+                            {{-- Jika BUKAN room, maka READONLY (tidak bisa diketik) --}}
+                            {{ !$is_room ? 'readonly' : '' }}
+                            class="w-full px-4 py-3 border rounded-md font-bold text-xl 
+                            {{ !$is_room ? 'bg-slate-100 text-slate-500' : 'bg-white text-slate-900 border-amber-500 focus:ring-amber-500' }}">
+                        
+                        <span class="absolute inset-y-0 right-3 flex items-center text-slate-500 font-bold">Rp</span>
                     </div>
+                    @error('nominal') <p class="text-xs text-red-500 mt-1 font-bold">{{ $message }}</p> @enderror
+                    
+                    @if(!$is_room && $category_id)
+                        <p class="text-[10px] text-slate-400 mt-1">* Nominal dihitung otomatis: Qty x Harga Satuan</p>
+                    @endif
                 </div>
 
                 {{-- Metode Pembayaran --}}
@@ -219,16 +254,30 @@
             </div>
         </div>
 
-        <div>
-            <label class="text-[10px] font-bold uppercase text-slate-400">Kategori</label>
-            <select wire:model.live="filterCategory"
-                class="w-full px-3 py-2 rounded-md border border-slate-300 focus:ring-1 focus:ring-amber-500 text-sm">
-                <option value="">Semua Kategori</option>
-                @foreach($categories as $cat)
-                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                @endforeach
-            </select>
-        </div>
+       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {{-- Filter Kategori --}}
+    <div>
+        <label class="text-[10px] font-bold uppercase text-slate-400">Kategori</label>
+        <select wire:model.live="filterCategory"
+            class="w-full px-3 py-2 rounded-md border border-slate-300 focus:ring-1 focus:ring-amber-500 text-sm">
+            <option value="">Semua Kategori</option>
+            @foreach($categories as $cat)
+                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+            @endforeach
+        </select>
+    </div>
+
+    {{-- Filter Jenis --}}
+    <div>
+         <label class="text-[10px] font-bold uppercase text-slate-400">Jenis Pendapatan</label>
+        <select wire:model.live="filterJenisPendapatan" 
+            class="w-full px-3 py-2 text-sm rounded-md bg-white border border-slate-300 focus:ring-1 focus:ring-amber-500 font-medium">
+            <option value="">Semua Jenis</option>
+            <option value="operasional">Operasional</option>
+            <option value="non_operasional">Non-Operasional</option>
+        </select>
+    </div>
+</div>
 
         <div class="flex justify-between items-center mt-4 pt-4 border-t border-slate-100">
             <button wire:click="resetFilter"
@@ -270,20 +319,50 @@
                                 {{ $item->tanggal->format('d/m/Y') }}
                             </td>
                             <td class="px-6 py-4 text-sm">
-                                <span class="font-bold text-slate-700">{{ $item->category->name ?? 'N/A' }}</span>
-                                <div class="text-xs text-slate-500 mt-0.5">
-                                    @if(str_contains(strtolower($item->category->name ?? ''), 'room'))
-                                        {{ $item->nights }} Malam ({{ $item->check_in->format('d M') }} - {{ $item->check_out->format('d M') }})
-                                    @else
-                                        {{ $item->item_name }} ({{ $item->qty }}x)
-                                    @endif
-                                </div>
-                            </td>
+    <div class="flex flex-col">
+        {{-- Baris Atas: Nama Kategori & Badge Jenis --}}
+        <div class="flex items-center gap-2 mb-1">
+            <span class="font-bold text-slate-700">{{ $item->category->name ?? 'N/A' }}</span>
+            
+            {{-- Badge Jenis Pendapatan --}}
+            
+        </div>
+
+        @if($item->jenis_pendapatan === 'operasional')
+                <span class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-[9px] font-black text-emerald-600 uppercase border border-emerald-100">
+                    <span class="w-1 h-1 rounded-full bg-emerald-500"></span>
+                    Operasional
+                </span>
+            @elseif($item->jenis_pendapatan === 'non_operasional')
+                <span class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-[9px] font-black text-rose-600 uppercase border border-rose-100">
+                    <span class="w-1 h-1 rounded-full bg-rose-500"></span>
+                    Non-Operasional
+                </span>
+            @else
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 text-[9px] font-black text-slate-400 uppercase border border-slate-200">
+                    N/A
+                </span>
+            @endif
+        {{-- Baris Bawah: Detail Item/Room --}}
+        <div class="text-xs text-slate-500 italic">
+            @if(str_contains(strtolower($item->category->name ?? ''), 'room'))
+                
+                ({{ $item->check_in ? $item->check_in->format('d M') : '-' }} - {{ $item->check_out ? $item->check_out->format('d M') : '-' }})
+            @else
+                
+                {{ $item->item_name ?? 'Tanpa Nama' }} ({{ $item->qty ?? 0 }}x)
+            @endif
+        </div>
+    </div>
+</td>
                            <td class="px-6 py-4 text-sm font-bold text-right">
                                 @if(str_contains(strtolower($item->category->name ?? ''), 'room'))
                                     {{-- Jika kategori adalah Room, tampilkan Harga Per Malam --}}
                                     <span class="text-xs text-slate-400 block font-normal">Harga/Malam:</span>
-                                    Rp {{ number_format($item->price_per_night, 0, ',', '.') }}
+                                  Rp {{ !empty($item->price_per_night) 
+                                        ? number_format($item->price_per_night, 0, ',', '.') 
+                                        : '-' 
+                                    }}
                                 @else
                                     {{-- Jika kategori lainnya, tampilkan Harga Per Item --}}
                                     <span class="text-xs text-slate-400 block font-normal">Harga/Item:</span>

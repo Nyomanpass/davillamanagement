@@ -85,21 +85,27 @@
                         </h2>
                     </div>
                     <div class="p-6 space-y-5">
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-slate-500 tracking-wide ml-1">Fee Manajemen (%)</label>
-                            <input type="number" wire:model="fee_manajemen" 
-                                   class="w-full rounded-xl border-slate-300 focus:border-amber-500 focus:ring-amber-500 text-sm py-3 px-4 shadow-sm"
-                                   placeholder="0">
-                            @error('fee_manajemen') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
-                        </div>
+                    {{-- Fee Manajemen --}}
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase text-slate-500 tracking-wide ml-1">Fee Manajemen (%)</label>
+                                <input type="number" 
+                                    step="0.1" {{-- Tambahkan ini --}}
+                                    wire:model="fee_manajemen" 
+                                    class="w-full rounded-xl border-slate-300 focus:border-amber-500 focus:ring-amber-500 text-sm py-3 px-4 shadow-sm"
+                                    placeholder="0.0"> {{-- Ubah placeholder --}}
+                                @error('fee_manajemen') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
+                            </div>
 
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-slate-500 tracking-wide ml-1">Service Karyawan (%)</label>
-                            <input type="number" wire:model="service_karyawan" 
-                                   class="w-full rounded-xl border-slate-300 focus:border-amber-500 focus:ring-amber-500 text-sm py-3 px-4 shadow-sm"
-                                   placeholder="0">
-                            @error('service_karyawan') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
-                        </div>
+                            {{-- Service Karyawan --}}
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase text-slate-500 tracking-wide ml-1">Service Karyawan (%)</label>
+                                <input type="number" 
+                                    step="0.1" {{-- Tambahkan ini --}}
+                                    wire:model="service_karyawan" 
+                                    class="w-full rounded-xl border-slate-300 focus:border-amber-500 focus:ring-amber-500 text-sm py-3 px-4 shadow-sm"
+                                    placeholder="0.0"> {{-- Ubah placeholder --}}
+                                @error('service_karyawan') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
+                            </div>
 
                         <div class="space-y-2">
                             <label class="text-xs font-bold uppercase text-slate-500 tracking-wide ml-1">Mulai Berlaku</label>
@@ -144,7 +150,7 @@
                             <td class="px-6 py-5">
                                 <div class="flex items-center gap-3">
                                     <div class="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm border border-amber-100">
-                                        {{ $h->fee_manajemen }}%
+                                        {{ $h->fee_manajemen + 0 }}%
                                     </div>
                                     <div class="flex flex-col">
                                         <span class="text-sm font-bold text-slate-700">Fee Manajemen</span>
@@ -154,7 +160,7 @@
                             </td>
                             <td class="px-6 py-5 text-center">
                                 <span class="px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-full font-bold text-xs border border-emerald-100 uppercase tracking-tight">
-                                    {{ $h->service_karyawan }}% Service
+                                   {{ $h->service_karyawan + 0 }}% Service
                                 </span>
                             </td>
                             <td class="px-6 py-5">
