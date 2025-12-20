@@ -26,7 +26,7 @@ return new class extends Migration
             
             // Total Akhir
             $table->decimal('nominal', 15, 2); 
-            
+            $table->enum('jenis_beban', ['operasional', 'non_operasional'])->default('operasional');
             $table->date('tanggal');
             $table->string('metode_pembayaran'); // Cash, Transfer, Petty Cash
             $table->text('keterangan')->nullable(); 

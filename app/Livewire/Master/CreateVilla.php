@@ -51,6 +51,9 @@ class CreateVilla extends Component
         
         DB::beginTransaction();
 
+        $fee_clean = number_format((float)$this->fee_manajemen, 1, '.', '');
+        $service_clean = number_format((float)$this->service_karyawan, 1, '.', '');
+
         // Upload Logo
         $logoPath = null;
         if ($this->image_logo) {
@@ -62,8 +65,8 @@ class CreateVilla extends Component
         $villa = Villa::create([
             'nama_villa' => $this->nama_villa,
             'alamat_villa' => $this->alamat_villa,
-            'fee_manajemen' => $this->fee_manajemen,
-            'service_karyawan' => $this->service_karyawan,
+            'fee_manajemen' => $fee_clean,
+            'service_karyawan' => $service_clean,
             'jumlah_kamar' => $this->jumlah_kamar,
             'image_logo' => $logoPath,
             'image_gallery' => null,

@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('nama_villa')->unique();
             $table->text('alamat_villa');
-            $table->unsignedTinyInteger('fee_manajemen')->default(0); // dalam persen
-            $table->unsignedTinyInteger('service_karyawan')->default(0); // dalam persen
+            $table->decimal('fee_manajemen', 4, 1)->default(0); 
+            $table->decimal('service_karyawan', 4, 1)->default(0);
             $table->unsignedSmallInteger('jumlah_kamar')->default(1);
             $table->string('image_logo')->nullable(); // Path logo
             $table->json('image_gallery')->nullable(); // Path gallery (disimpan sebagai JSON)

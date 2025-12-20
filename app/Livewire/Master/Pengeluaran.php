@@ -53,6 +53,13 @@ class Pengeluaran extends Component
     public $ringkasanAllTime = 0;
     public $ringkasanTotalFilter = 0; 
 
+    public $jenis_beban = ''; // Default value
+    public $filterJenisBeban = ''; // Properti filter baru
+
+    public $ringkasanOperasionalBulanIni = 0;
+    public $ringkasanNonOperasionalBulanIni = 0;
+            
+
     public function mount()
     {
         $this->activeVillaId = session('villa_id');
@@ -86,7 +93,7 @@ class Pengeluaran extends Component
         }
 
         // Reset Page jika filter berubah
-        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory'])) {
+        if (in_array($propertyName, ['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory', 'filterJenisBeban'])) {
             $this->resetPage();
             $this->hitungRingkasan();
         }
@@ -96,7 +103,7 @@ class Pengeluaran extends Component
     {
         $this->reset([
             'category_id', 'nama_pengeluaran', 'qty', 'satuan', 
-            'harga_satuan', 'nominal', 'keterangan', 'pengeluaranId', 'isEditMode'
+            'harga_satuan', 'nominal', 'keterangan', 'pengeluaranId', 'isEditMode', 'jenis_beban'
         ]); 
         $this->tanggal = Carbon::now()->format('Y-m-d');
         $this->qty = 1;
@@ -105,17 +112,27 @@ class Pengeluaran extends Component
 
     public function resetFilter()
     {
-        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory']);
+        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory', 'filterJenisBeban']);
         $this->filterBulan = now()->format('m');
         $this->filterTahun = now()->year;
         $this->hitungRingkasan(); 
         $this->resetPage(); 
     }
 
+    public function updatedJenisBeban($value)
+{
+    // Jika value berubah menjadi array (karena klik checkbox), 
+    // ambil nilai terakhir saja untuk dikembalikan ke string
+    if (is_array($value)) {
+        $this->jenis_beban = end($value);
+    }
+}
+
     public function savePengeluaran()
     {
         $this->validate([
             'category_id' => 'required',
+            'jenis_beban' => 'required|in:operasional,non_operasional',
             'nama_pengeluaran' => 'required|string|max:255',
             'qty' => 'required|numeric|min:0.1',
             'harga_satuan' => 'required|numeric',
@@ -127,6 +144,7 @@ class Pengeluaran extends Component
         $data = [
             'villa_id' => $this->activeVillaId,
             'category_id' => $this->category_id,
+            'jenis_beban' => $this->jenis_beban, // Simpan jenis beban
             'nama_pengeluaran' => $this->nama_pengeluaran,
             'qty' => $this->qty,
             'satuan' => $this->satuan,
@@ -168,7 +186,7 @@ class Pengeluaran extends Component
         $this->tanggal = Carbon::parse($p->tanggal)->format('Y-m-d');
         $this->metode_pembayaran = $p->metode_pembayaran;
         $this->keterangan = $p->keterangan; 
-        
+        $this->jenis_beban = $p->jenis_beban;
         $this->isEditMode = true;
         $this->js('window.scrollTo({top: 0, behavior: "smooth"})');
     }
@@ -186,17 +204,28 @@ class Pengeluaran extends Component
     }
 
     private function hitungRingkasan()
-    {
-        if (!$this->activeVillaId) return;
+{
+    if (!$this->activeVillaId) return;
 
-        $baseQuery = PengeluaranModel::where('villa_id', $this->activeVillaId);
+    $baseQuery = PengeluaranModel::where('villa_id', $this->activeVillaId);
 
-        $this->ringkasanBulanIni = $baseQuery->clone()->whereMonth('tanggal', now()->month)->whereYear('tanggal', now()->year)->sum('nominal');
-        $this->ringkasanHariIni = $baseQuery->clone()->whereDate('tanggal', now()->toDateString())->sum('nominal');
-        $this->ringkasanAllTime = $baseQuery->clone()->sum('nominal');
-        $this->ringkasanTotalFilter = $this->applyFilter($baseQuery->clone())->sum('nominal');
-    }
+    // 1. Ringkasan Dasar (Total)
+    $this->ringkasanBulanIni = $baseQuery->clone()->whereMonth('tanggal', now()->month)->whereYear('tanggal', now()->year)->sum('nominal');
+    $this->ringkasanHariIni = $baseQuery->clone()->whereDate('tanggal', now()->toDateString())->sum('nominal');
+    $this->ringkasanAllTime = $baseQuery->clone()->sum('nominal');
+    $this->ringkasanTotalFilter = $this->applyFilter($baseQuery->clone())->sum('nominal');
+
+    // 2. Ringkasan Spesifik (Beban Operasional vs Non-Operasional) Bulan Ini
+    $queryBulanIni = $baseQuery->clone()->whereMonth('tanggal', now()->month)->whereYear('tanggal', now()->year);
     
+    $this->ringkasanOperasionalBulanIni = $queryBulanIni->clone()
+        ->where('jenis_beban', 'operasional')
+        ->sum('nominal');
+
+    $this->ringkasanNonOperasionalBulanIni = $queryBulanIni->clone()
+        ->where('jenis_beban', 'non_operasional')
+        ->sum('nominal');
+}
     private function applyFilter($query)
     {
         if ($this->filterBulan) $query->whereMonth('tanggal', $this->filterBulan);
@@ -204,6 +233,7 @@ class Pengeluaran extends Component
         if ($this->filterStartDate) $query->whereDate('tanggal', '>=', $this->filterStartDate);
         if ($this->filterEndDate) $query->whereDate('tanggal', '<=', $this->filterEndDate);
         if ($this->filterCategory) $query->where('category_id', $this->filterCategory); // Filter Kategori
+        if ($this->filterJenisBeban) $query->where('jenis_beban', $this->filterJenisBeban);
 
         return $query;
     }

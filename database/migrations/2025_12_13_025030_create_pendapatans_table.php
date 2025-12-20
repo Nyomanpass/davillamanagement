@@ -18,8 +18,7 @@ return new class extends Migration
             // Kolom Dinamis untuk Room
             $table->date('check_in')->nullable();
             $table->date('check_out')->nullable();
-            $table->integer('nights')->nullable();
-            $table->decimal('price_per_night', 15, 2)->nullable();
+          
 
             // Kolom Dinamis untuk Item Umum (Laundry, Breakfast, dll)
             $table->string('item_name')->nullable(); 

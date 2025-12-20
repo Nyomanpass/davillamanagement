@@ -159,7 +159,15 @@
                     <tr class="hover:bg-slate-50">
                         <td class="px-6 py-4 font-medium text-slate-800">{{ $report['name'] }}</td>
                         <td class="px-6 py-4 text-right">Rp {{ number_format($report['laba_kotor'], 0, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-center font-semibold text-amber-600">{{ $report['fee_percent'] }}%</td>
+                        <td class="px-6 py-4 text-center font-semibold text-amber-600">
+                            @if(is_numeric($report['fee_percent']))
+                                {{ (float)$report['fee_percent'] + 0 }}%
+                            @else
+                                <span class="text-[10px] font-bold px-2 py-1 bg-slate-100 text-slate-500 rounded-md uppercase tracking-tighter">
+                                    {{ $report['fee_percent'] }}
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 text-right font-extrabold text-amber-800">
                             Rp {{ number_format($report['fee_amount'], 0, ',', '.') }}
                         </td>

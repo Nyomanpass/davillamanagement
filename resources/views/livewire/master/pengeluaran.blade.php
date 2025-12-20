@@ -46,6 +46,16 @@
                     @error('category_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
 
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Jenis Beban Biaya</label>
+                    <select wire:model="jenis_beban" class="w-full px-4 py-2 rounded-md border border-slate-300 focus:ring-1 focus:ring-amber-500 text-sm">
+                        <option value="">Pilih Jenis Beban</option>
+                        <option value="operasional">Operasional (Biaya Rutin)</option>
+                        <option value="non_operasional">Non-Operasional (Pajak/Renov)</option>
+                    </select>
+                    @error('jenis_beban') <p class="text-xs text-red-500 mt-1 font-bold">{{ $message }}</p> @enderror
+                </div>
+
                 {{-- Nama Pengeluaran --}}
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Nama Item / Keperluan</label>
@@ -194,15 +204,56 @@
                 <input type="date" wire:model.live="filterEndDate" class="w-full px-3 py-2 text-sm rounded-md border border-slate-300">
             </div>
         </div>
-         <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Kategori</label>
-                <select wire:model.live="filterCategory" class="w-full px-3 py-2 text-sm rounded-md border border-slate-300 focus:ring-amber-500">
-                    <option value="">Semua Kategori</option>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                    @endforeach
-                </select>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {{-- Filter Kategori --}}
+    <div class="relative group mt-6">
+        <label class="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">
+        
+            Kategori Item
+        </label>
+        <div class="relative">
+            <select wire:model.live="filterCategory" 
+                class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:bg-white transition-all duration-200 appearance-none text-slate-700 font-medium">
+                <option value="">Semua Kategori</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                @endforeach
+            </select>
+            {{-- Custom Icon Left --}}
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors">
+                <i class="fa-solid fa-layer-group text-xs"></i>
             </div>
+            {{-- Custom Arrow Right --}}
+            <div class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </div>
+        </div>
+    </div>
+
+    {{-- Filter Jenis Beban --}}
+    <div class="relative group mt-6">
+        <label class="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">
+          
+            Tipe Operasional
+        </label>
+        <div class="relative">
+            <select wire:model.live="filterJenisBeban" 
+                class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:bg-white transition-all duration-200 appearance-none text-slate-700 font-medium">
+                <option value="">Semua Tipe</option>
+                <option value="operasional">Operasional</option>
+                <option value="non_operasional">Non-Operasional</option>
+            </select>
+            {{-- Custom Icon Left --}}
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors">
+                <i class="fa-solid fa-sliders text-xs"></i>
+            </div>
+            {{-- Custom Arrow Right --}}
+            <div class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div class="flex justify-between items-center mt-4 pt-4 border-t border-slate-100">
             <button wire:click="resetFilter" class="text-xs font-bold text-amber-600 hover:text-amber-700 uppercase tracking-widest">
@@ -246,9 +297,29 @@
                                 <span class="font-bold text-slate-700">{{ $item->tanggal->format('d/m/Y') }}</span>
                                 <div class="text-[10px] text-slate-400 font-medium">{{ $item->villa->nama_villa ?? '-' }}</div>
                             </td>
-                            <td class="px-6 py-4">
+                           <td class="px-6 py-4">
+    {{-- Nama Pengeluaran --}}
                                 <div class="text-sm font-bold text-slate-800">{{ $item->nama_pengeluaran }}</div>
-                                <span class="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 uppercase">{{ $item->category->name ?? '-' }}</span>
+                                
+                                <div class="flex items-center gap-2 mt-1.5">
+                                    {{-- Badge Kategori --}}
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-[9px] font-bold text-slate-500 uppercase border border-slate-200">
+                                        {{ $item->category->name ?? '-' }}
+                                    </span>
+
+                                    {{-- Badge Jenis Beban (Operasional vs Non-Operasional) --}}
+                                    @if($item->jenis_beban === 'operasional')
+                                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-[9px] font-black text-emerald-600 uppercase border border-emerald-100">
+                                            <span class="w-1 h-1 rounded-full bg-emerald-500"></span>
+                                            Operasional
+                                        </span>
+                                    @else
+                                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-[9px] font-black text-rose-600 uppercase border border-rose-100">
+                                            <span class="w-1 h-1 rounded-full bg-rose-500"></span>
+                                            Non-Operasional
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-xs text-slate-600 font-medium">{{ (float)$item->qty }} {{ $item->satuan }}</div>

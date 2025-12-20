@@ -17,6 +17,7 @@ class Pengeluaran extends Model
     protected $fillable = [
         'villa_id',
         'category_id',      // GANTI: dari jenis_pengeluaran ke category_id
+        'jenis_beban', // Tambahkan ini
         'nama_pengeluaran', // TAMBAHAN: Detail barang/jasa
         'qty',              // TAMBAHAN: Jumlah
         'satuan',           // TAMBAHAN: Pcs, Kg, dll

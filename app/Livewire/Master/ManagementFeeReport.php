@@ -123,6 +123,7 @@ class ManagementFeeReport extends Component
         $villaTotalFeeAmount = 0;
         $villaTotalServiceAmount = 0;
         $lastFeeUsed = 0;
+        $usedFeesInPeriod = [];
 
         foreach ($monthsToProcess as $month) {
             $currentStart = Carbon::createFromDate($this->selectedYear, $month, 1)->startOfMonth();
@@ -134,6 +135,7 @@ class ManagementFeeReport extends Component
             $feeServicePercent = $fees['service'];
             $lastFeeUsed = $feeManajPercent; 
 
+            $usedFeesInPeriod[] = $feeManajPercent + 0;
             // 3. Query Data Per Bulan (Dinamis berdasarkan Category ID)
             
             // Pendapatan & Pengeluaran KHUSUS (Kategori yang dicentang)
@@ -170,12 +172,15 @@ class ManagementFeeReport extends Component
             $villaTotalServiceAmount += $sNominal;
         }
 
+        $uniqueFees = array_unique($usedFeesInPeriod);
+        $displayFee = count($uniqueFees) > 1 ? 'Mixed' : head($uniqueFees);
+
         // 6. Masukkan hasil ke array reports
         $this->reports[] = [
             'id' => $villa->id,
             'name' => $villa->nama_villa,
             'laba_kotor' => $villaTotalLabaKotor,
-            'fee_percent' => $this->filterMode === 'monthly' ? $lastFeeUsed : 'Mixed',
+            'fee_percent' => $displayFee,
             'fee_amount' => $villaTotalFeeAmount,
             'service_amount' => $villaTotalServiceAmount,
         ];

@@ -60,12 +60,15 @@ class VillaFeeHistoryManager extends Component
     {
         $this->validate();
 
+        $fee_clean = number_format((float)$this->fee_manajemen, 1, '.', '');
+        $service_clean = number_format((float)$this->service_karyawan, 1, '.', '');
+
         VillaFeeHistory::updateOrCreate(
             ['id' => $this->editingId],
             [
                 'villa_id' => $this->villaId, // Selalu gunakan villaId dari URL
-                'fee_manajemen' => $this->fee_manajemen,
-                'service_karyawan' => $this->service_karyawan,
+                'fee_manajemen' => $fee_clean, // Gunakan hasil format
+                'service_karyawan' => $service_clean, // Gunakan hasil format
                 'mulai_berlaku' => $this->mulai_berlaku,
             ]
         );
@@ -78,8 +81,8 @@ class VillaFeeHistoryManager extends Component
     {
         $history = VillaFeeHistory::findOrFail($id);
         $this->editingId = $id;
-        $this->fee_manajemen = $history->fee_manajemen;
-        $this->service_karyawan = $history->service_karyawan;
+        $this->fee_manajemen = $history->fee_manajemen + 0;
+        $this->service_karyawan = $history->service_karyawan + 0;
         $this->mulai_berlaku = $history->mulai_berlaku->format('Y-m-d');
     }
 

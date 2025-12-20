@@ -57,8 +57,8 @@ class EditVilla extends Component
         // Isi properti form dengan data villa
         $this->nama_villa = $villa->nama_villa;
         $this->alamat_villa = $villa->alamat_villa;
-        $this->fee_manajemen = $villa->fee_manajemen;
-        $this->service_karyawan = $villa->service_karyawan;
+        $this->fee_manajemen = $villa->fee_manajemen + 0;
+        $this->service_karyawan = $villa->service_karyawan + 0;
         $this->jumlah_kamar = $villa->jumlah_kamar;
         
         // Simpan path gambar lama
@@ -90,14 +90,17 @@ public function updateVilla()
     try {
         $this->validate();
         Log::info('DEBUG: VALIDASI BERHASIL!');
+
+        $fee_clean = number_format((float)$this->fee_manajemen, 1, '.', '');
+        $service_clean = number_format((float)$this->service_karyawan, 1, '.', '');
         
         DB::beginTransaction();
         
         $updateData = [
             'nama_villa' => $this->nama_villa,
             'alamat_villa' => $this->alamat_villa,
-            'fee_manajemen' => $this->fee_manajemen,
-            'service_karyawan' => $this->service_karyawan,
+            'fee_manajemen' => $fee_clean, // Gunakan hasil format
+            'service_karyawan' => $service_clean, // Gunakan hasil format
             'jumlah_kamar' => $this->jumlah_kamar,
         ];
 
