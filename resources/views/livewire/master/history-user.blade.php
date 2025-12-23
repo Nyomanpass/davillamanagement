@@ -98,8 +98,9 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                                    {{ $activity->activity_type }}
+                                <span class="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 uppercase tracking-tight shadow-sm" 
+                                    title="{{ $activity->activity_type }}">
+                                    {{ Str::limit($activity->activity_type, 35, '...') }}
                                 </span>
                             </td>
                             <td class="px-6 py-4">

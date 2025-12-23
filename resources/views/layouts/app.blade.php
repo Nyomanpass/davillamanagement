@@ -104,11 +104,11 @@
        <i class="fa-solid fa-chart-column text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan') ? 'text-amber-400' : 'text-white/60' }}"></i>
        Laporan Villa
     </a>
-    <a href="{{ url($urlPrefix . '/laporan/okupansi') }}" 
+    <a href="{{ url($urlPrefix . '/laporan/occupancy-report') }}" 
        class="flex items-center py-2 px-4 text-sm font-semibold transition-all
-       {{ request()->is($urlPrefix . '/laporan/okupansi*') ? 'text-amber-400' : 'text-white' }}">
+       {{ request()->is($urlPrefix . '/laporan/occupancy-report*') ? 'text-amber-400' : 'text-white' }}">
        {{-- Ikon Bed atau Door Open untuk Okupansi --}}
-       <i class="fa-solid fa-bed text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan/okupansi*') ? 'text-amber-400' : 'text-white/60' }}"></i>
+       <i class="fa-solid fa-bed text-[12px] mr-3 {{ request()->is($urlPrefix . '/laporan/occupancy-report*') ? 'text-amber-400' : 'text-white/60' }}"></i>
        Okupansi Villa
     </a>
 
@@ -182,16 +182,39 @@
         
     </div>
 
-    <div class="mt-4 px-1">
-    <a href="/logout" 
-       class="flex items-center justify-center gap-3 w-full py-3 px-4 bg-red-50 text-red-600 rounded-xl border border-red-100 font-bold text-sm transition-all duration-300 hover:bg-red-600 hover:text-white hover:shadow-lg group">
-        
-        {{-- Ikon Logout --}}
-        <i class="fa-solid fa-right-from-bracket text-sm transition-transform group-hover:-translate-x-1"></i>
-        
-        <span>Keluar Aplikasi</span>
-    </a>
+    <div class="px-2 space-y-4">
+    {{-- Label Header Khusus Master --}}
+    @if(auth()->user()->role === 'master')
+        <div class="grid grid-cols-2 gap-2">
+            {{-- Tombol Pengaturan Profil --}}
+            <a href="{{ route('master.profile') }}" 
+               class="flex items-center justify-center gap-2 py-3 px-2 rounded-xl transition-all duration-300 group
+               {{ request()->routeIs('master.profile') 
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-200' 
+                  : 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-600 hover:text-white' }}">
+                
+                <i class="fas fa-user-gear text-sm transition-transform group-hover:scale-110"></i>
+                <span class="text-[11px] font-bold">PROFIL</span>
+            </a>
+
+            {{-- Tombol Logout --}}
+            <a href="/logout" 
+               class="flex items-center justify-center gap-2 py-3 px-2 bg-red-50 text-red-600 rounded-xl border border-red-100 transition-all duration-300 hover:bg-red-600 hover:text-white group">
+                
+                <i class="fa-solid fa-right-from-bracket text-sm transition-transform group-hover:translate-x-1"></i>
+                <span class="text-[11px] font-bold">KELUAR</span>
+            </a>
+        </div>
+    @else
+        {{-- Tampilan Logout Normal jika bukan Master (Full Width) --}}
+        <a href="/logout" 
+           class="flex items-center justify-center gap-3 w-full py-3 px-4 bg-red-50 text-red-600 rounded-xl border border-red-100 font-bold text-sm transition-all duration-300 hover:bg-red-600 hover:text-white group">
+            <i class="fa-solid fa-right-from-bracket text-sm"></i>
+            <span>Keluar Aplikasi</span>
+        </a>
+    @endif
 </div>
+    
 </header>
         {{-- PAGE CONTENT --}}
         <main class="p-6">

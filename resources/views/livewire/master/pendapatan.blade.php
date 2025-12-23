@@ -79,12 +79,7 @@
             <label class="text-xs font-medium text-slate-600">Check Out</label>
             <input type="date" wire:model.live="check_out" class="w-full px-3 py-2 border rounded-md">
         </div>
-        <div>
-            <label class="text-xs font-medium text-slate-600">Total Malam</label>
-        
-                <input type="number" wire:model.live="nights" class="w-full px-3 py-2 border rounded-md">
-            
-        </div>
+       
         <div>
            <label class="block text-sm font-bold text-slate-700 mb-1">Jenis Pendapatan</label>
             <select wire:model="jenis_pendapatan"
