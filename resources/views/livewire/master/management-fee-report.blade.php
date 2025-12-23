@@ -24,13 +24,16 @@
             </p>
         </div>
 
-        <button wire:click="exportReport"
-            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
-                   bg-emerald-600 text-white font-semibold text-sm
-                   hover:bg-emerald-700 transition shadow-sm">
+       <div class="space-x-3">
+         <button wire:click="exportReport"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
             <i class="fas fa-file-excel"></i>
             Export Excel
         </button>
+        <button wire:click="exportPdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+            <i class="fas fa-file-pdf mr-1"></i>Export PDF
+        </button>
+       </div>
     </div>
 
     {{-- CARD UTAMA --}}

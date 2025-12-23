@@ -254,7 +254,7 @@ public function updatedCategoryId($value)
 
       public function resetFilter()
     {
-        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory']);
+        $this->reset(['filterBulan', 'filterTahun', 'filterStartDate', 'filterEndDate', 'filterCategory', 'filterJenisPendapatan']);
 
         $currentYear = now()->year;
         for ($i = 0; $i < 5; $i++) {

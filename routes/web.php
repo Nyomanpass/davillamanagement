@@ -19,6 +19,8 @@ use App\Livewire\Master\ManageUsers;
 use App\Livewire\CategorySettings;
 use App\Livewire\Master\VillaFeeHistoryManager;
 use App\Livewire\Auth\VerifyPin;
+use App\Livewire\Report\OccupancyReport;
+use App\Livewire\Master\ProfileSettings;
 
 // =======================
 // GUEST (Belum login)
@@ -63,6 +65,10 @@ Route::middleware('auth')->group(function () {
          Route::get('/master/akun/kelola', ManageUsers::class)->name('master.users.manage');
          Route::get('/master/settings/categories', CategorySettings::class)->name('master.settings.categories');
          Route::get('/master/kelola-villa/{villaId}/settings', VillaFeeHistoryManager::class)->name('master.villa.settings');
+         Route::get('/master/laporan/occupancy-report', OccupancyReport::class)->name('master.report.occupancy');
+         Route::get('/export/management-fee-excel', [ExportController::class, 'managementFeeExcel'])->name('management.fee.excel');
+         Route::get('/export/management-fee-pdf', [ExportController::class, 'managementFeePdf'])->name('management.fee.pdf');
+         Route::get('/master/profile', ProfileSettings::class)->name('master.profile');
       });
 
     // =======================
@@ -74,6 +80,13 @@ Route::middleware('auth')->group(function () {
        Route::get('/villa/pendapatan', Pendapatan::class)->name('villa.pendapatan');
        Route::get('/villa/pengeluaran', Pengeluaran::class)->name('villa.pengeluaran');
        Route::get('/villa/laporan', Laporan::class)->name('villa.laporan');
+       Route::get('/villa/laporan/occupancy-report', OccupancyReport::class)->name('villa.report.occupancy');
+       Route::get('/export/pendapatan/excel', [ExportController::class, 'pendapatanExcel'])->name('export.pendapatan.excel');
+       Route::get('/export/pendapatan/pdf', [ExportController::class, 'pendapatanPdf'])->name('export.pendapatan.pdf');
+       Route::get('/export/pengeluaran/excel', [ExportController::class, 'pengeluaranExcel'])->name('export.pengeluaran.excel');
+       Route::get('/export/pengeluaran/pdf', [ExportController::class, 'pengeluaranPdf'])->name('export.pengeluaran.pdf');
+       Route::get('/laporan/excel', [ExportController::class, 'laporanExcel'])->name('laporan.excel');
+       Route::get('/laporan/pdf', [ExportController::class, 'laporanPdf'])->name('laporan.pdf');
     });
    }); // End Middleware pin.verified
 });

@@ -42,7 +42,7 @@ class KelolaVilla extends Component
     public function getTotalKaryawanProperty()
     {
         // Asumsi: Karyawan adalah User dengan role 'staf' atau 'karyawan'
-        return User::whereIn('role', ['staf', 'karyawan'])->count();
+       return User::whereIn('role', ['staf', 'staf_master'])->count();
     }
 
 

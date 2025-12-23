@@ -14,6 +14,7 @@ use App\Exports\PengeluaranReportExport;
 use App\Exports\LaporanReportExport;
 use Illuminate\Support\Facades\DB;
 use App\Models\Category;
+use App\Exports\ManagementFeeExport;
 
 
 class ExportController extends Controller
@@ -214,42 +215,71 @@ public function pengeluaranPdf(Request $request)
 
 public function laporanExcel(Request $request)
 {
-    $villa = Villa::findOrFail($request->villa_id);
+    // 1. Ambil Data Villa & Kategori Khusus
+    $villa = Villa::with('specialCategories')->findOrFail($request->villa_id);
+    $specialCategoryIds = $villa->specialCategories->pluck('id')->toArray();
 
-    $queryPendapatan = DB::table('pendapatan')->where('villa_id', $villa->id);
-    $queryPengeluaran = DB::table('pengeluarans')->where('villa_id', $villa->id);
+    // 2. Inisialisasi Query (Gunakan clone agar query dasar tidak tercampur)
+    $pKhususQuery = \App\Models\Pendapatan::where('villa_id', $villa->id)->whereIn('category_id', $specialCategoryIds);
+    $exKhususQuery = \App\Models\Pengeluaran::where('villa_id', $villa->id)->whereIn('category_id', $specialCategoryIds);
+    $pUmumQuery = \App\Models\Pendapatan::where('villa_id', $villa->id)->whereNotIn('category_id', $specialCategoryIds);
+    $exUmumQuery = \App\Models\Pengeluaran::where('villa_id', $villa->id)->whereNotIn('category_id', $specialCategoryIds);
 
+    // 3. Filter Tahun & Bulan
     if ($request->tahun) {
-        $queryPendapatan->whereYear('tanggal', $request->tahun);
-        $queryPengeluaran->whereYear('tanggal', $request->tahun);
+        foreach ([$pKhususQuery, $exKhususQuery, $pUmumQuery, $exUmumQuery] as $q) {
+            $q->whereYear('tanggal', $request->tahun);
+        }
     }
-
-    // Hanya filter bulan kalau ada
     if ($request->bulan) {
-        $queryPendapatan->whereMonth('tanggal', $request->bulan);
-        $queryPengeluaran->whereMonth('tanggal', $request->bulan);
+        foreach ([$pKhususQuery, $exKhususQuery, $pUmumQuery, $exUmumQuery] as $q) {
+            $q->whereMonth('tanggal', $request->bulan);
+        }
     }
 
-    $totalPendapatan = (float) $queryPendapatan->sum('nominal');
-    $totalPengeluaran = (float) $queryPengeluaran->sum('nominal');
+    // 4. Eksekusi Sum Nominal
+    $pKhusus = (float) $pKhususQuery->sum('nominal');
+    $exKhusus = (float) $exKhususQuery->sum('nominal');
+    $pUmum = (float) $pUmumQuery->sum('nominal');
+    $exUmum = (float) $exUmumQuery->sum('nominal');
 
+    // 5. Ambil Persentase (Sesuai logika dashboard Anda)
     $servicePercentage = $villa->service_karyawan;
     $feePercentage = $villa->fee_manajemen;
 
-   $periode = $request->bulan
-        ? $request->bulan . '-' . $request->tahun // gunakan "-" bukan "/"
-        : $request->tahun;
+    // 6. LOGIKA PERHITUNGAN (Harus sama dengan PDF & Dashboard)
+    $marginKhusus = $pKhusus - $exKhusus;
+    $serviceKaryawanNominal = $marginKhusus > 0 ? $marginKhusus * ($servicePercentage / 100) : 0;
+    
+    // Pendapatan Kotor = (Margin Khusus - Service) + (Pendapatan Umum - Pengeluaran Umum)
+    $pendapatanKotor = ($marginKhusus - $serviceKaryawanNominal) + ($pUmum - $exUmum);
+    $feeManajemenNominal = $pendapatanKotor * ($feePercentage / 100);
+    
+    $totalPendapatan = $pKhusus + $pUmum;
+    $totalPengeluaran = $exKhusus + $exUmum;
 
-    $filename = 'laporan_' . str_replace(' ', '_', $periode) . '.xlsx';
+    // 7. Penamaan File
+   $periodeName = $request->bulan 
+    ? \Carbon\Carbon::createFromDate($request->tahun, (int)$request->bulan, 1)->translatedFormat('F-Y')
+    : $request->tahun;
+    $filename = 'laporan_excel_' . str_replace(' ', '_', $periodeName) . '.xlsx';
 
-    return Excel::download(
+    // 8. Export (PASTIKAN SEMUA PARAMETER TERISI)
+    return \Maatwebsite\Excel\Facades\Excel::download(
         new LaporanReportExport(
-            $totalPendapatan,
-            $totalPengeluaran,
-            $villa->nama_villa,
-            $periode, 
-            $servicePercentage,
-            $feePercentage
+            $totalPendapatan,        // 1
+            $totalPengeluaran,       // 2
+            $villa->nama_villa,      // 3
+            $periodeName,            // 4
+            $servicePercentage,      // 5
+            $feePercentage,          // 6
+            $serviceKaryawanNominal, // 7
+            $feeManajemenNominal,    // 8
+            $pendapatanKotor,        // 9
+            $pKhusus,                // 10 (Tambahan)
+            $exKhusus,               // 11 (Tambahan)
+            $pUmum,                  // 12 (Tambahan)
+            $exUmum                  // 13 (Tambahan)
         ),
         $filename
     );
@@ -258,55 +288,254 @@ public function laporanExcel(Request $request)
 
 public function laporanPdf(Request $request)
 {
-    $villa = Villa::findOrFail($request->villa_id);
+    // 1. Ambil Data Villa & Kategori Khusus (sama seperti di Livewire)
+    $villa = Villa::with('specialCategories')->findOrFail($request->villa_id);
+    $specialCategoryIds = $villa->specialCategories->pluck('id')->toArray();
 
-    $queryPendapatan = DB::table('pendapatan')->where('villa_id', $villa->id);
-    $queryPengeluaran = DB::table('pengeluarans')->where('villa_id', $villa->id);
+    // 2. Inisialisasi Query menggunakan Eloquent Model
+    $pKhususQuery = \App\Models\Pendapatan::where('villa_id', $villa->id)->whereIn('category_id', $specialCategoryIds);
+    $exKhususQuery = \App\Models\Pengeluaran::where('villa_id', $villa->id)->whereIn('category_id', $specialCategoryIds);
+    
+    $pUmumQuery = \App\Models\Pendapatan::where('villa_id', $villa->id)->whereNotIn('category_id', $specialCategoryIds);
+    $exUmumQuery = \App\Models\Pengeluaran::where('villa_id', $villa->id)->whereNotIn('category_id', $specialCategoryIds);
 
+    // 3. Filter Tahun & Bulan
     if ($request->tahun) {
-        $queryPendapatan->whereYear('tanggal', $request->tahun);
-        $queryPengeluaran->whereYear('tanggal', $request->tahun);
+        foreach ([$pKhususQuery, $exKhususQuery, $pUmumQuery, $exUmumQuery] as $q) {
+            $q->whereYear('tanggal', $request->tahun);
+        }
     }
+
     if ($request->bulan) {
-        $queryPendapatan->whereMonth('tanggal', $request->bulan);
-        $queryPengeluaran->whereMonth('tanggal', $request->bulan);
+        foreach ([$pKhususQuery, $exKhususQuery, $pUmumQuery, $exUmumQuery] as $q) {
+            $q->whereMonth('tanggal', $request->bulan);
+        }
     }
 
-    $totalPendapatan = (float) $queryPendapatan->sum('nominal');
-    $totalPengeluaran = (float) $queryPengeluaran->sum('nominal');
+    // 4. Ambil Nominal
+    $pKhusus = (float) $pKhususQuery->sum('nominal');
+    $exKhusus = (float) $exKhususQuery->sum('nominal');
+    $pUmum = (float) $pUmumQuery->sum('nominal');
+    $exUmum = (float) $exUmumQuery->sum('nominal');
 
-    $pendapatanBersih = $totalPendapatan - $totalPengeluaran;
-    $servicePercentage = $villa->service_karyawan;
-    $serviceNominal = $pendapatanBersih * ($servicePercentage / 100);
-    $pendapatanKotor = $pendapatanBersih - $serviceNominal;
-    $feePercentage = $villa->fee_manajemen;
+    // 5. Logika History Fee (Opsional tapi disarankan agar akurat)
+    // Mencari fee yang berlaku pada periode tersebut
+    $filterDate = $request->bulan 
+        ? Carbon::createFromDate($request->tahun, $request->bulan, 1)->format('Y-m-d')
+        : Carbon::createFromDate($request->tahun, 1, 1)->format('Y-m-d');
+
+    $history = \App\Models\VillaFeeHistory::where('villa_id', $villa->id)
+        ->where('mulai_berlaku', '<=', $filterDate)
+        ->orderBy('mulai_berlaku', 'desc')
+        ->first();
+
+    $servicePercentage = $history ? $history->service_karyawan : $villa->service_karyawan;
+    $feePercentage = $history ? $history->fee_manajemen : $villa->fee_manajemen;
+
+    // 6. LOGIKA PERHITUNGAN BARU (Persis Dashboard)
+    $marginKhusus = $pKhusus - $exKhusus;
+    
+    // Service Karyawan HANYA dari Margin Khusus (jika positif)
+    $serviceNominal = $marginKhusus > 0 ? $marginKhusus * ($servicePercentage / 100) : 0;
+    
+    // Pendapatan Kotor = (Margin Khusus - Service) + Margin Umum
+    $pendapatanKotor = ($marginKhusus - $serviceNominal) + ($pUmum - $exUmum);
+    
+    // Fee Manajemen dari Pendapatan Kotor
     $feeNominal = $pendapatanKotor * ($feePercentage / 100);
+    
     $pendapatanOwner = $pendapatanKotor - $feeNominal;
 
+    // 7. Format Periode untuk Nama File
     $periode = $request->bulan
-        ? $request->bulan . '_' . $request->tahun // <-- ganti / jadi _
+        ? Carbon::createFromDate($request->tahun, $request->bulan, 1)->translatedFormat('F_Y')
         : $request->tahun;
 
-    $pdf = Pdf::loadView('exports.laporan_pdf', [
-        'villaName' => $villa->nama_villa,
-        'periode' => $periode,
-        'totalPendapatan' => $totalPendapatan,
-        'totalPengeluaran' => $totalPengeluaran,
-        'pendapatanBersih' => $pendapatanBersih,
+    // 8. Load View PDF
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.laporan_pdf', [
+        'villaName'         => $villa->nama_villa,
+        'periode'           => str_replace('_', ' ', $periode),
+        'totalPendapatan'   => $pKhusus + $pUmum,
+        'totalPengeluaran'  => $exKhusus + $exUmum,
+        'pKhusus'           => $pKhusus,
+        'exKhusus'          => $exKhusus,
+        'marginKhusus'      => $marginKhusus,
+        'pUmum'             => $pUmum,
+        'exUmum'            => $exUmum,
         'servicePercentage' => $servicePercentage,
-        'serviceNominal' => $serviceNominal,
-        'pendapatanKotor' => $pendapatanKotor,
-        'feePercentage' => $feePercentage,
-        'feeNominal' => $feeNominal,
-        'pendapatanOwner' => $pendapatanOwner,
-    ])->setPaper('a4', 'landscape');
+        'serviceNominal'    => $serviceNominal,
+        'pendapatanKotor'   => $pendapatanKotor,
+        'feePercentage'     => $feePercentage,
+        'feeNominal'        => $feeNominal,
+        'pendapatanOwner'   => $pendapatanOwner,
+    ])->setPaper('a4', 'portrait'); // Biasanya laporan keuangan lebih rapi portrait
 
     return $pdf->download('laporan_keuangan_' . $periode . '.pdf');
 }
 
+public function managementFeeExcel(Request $request)
+{
+    // 1. Inisialisasi Data Dasar
+    $selectedYear = $request->tahun ?? now()->year;
+    $selectedMonth = $request->bulan; // Bisa null jika tahunan
+    $filterVilla = $request->villa_id; // Bisa null jika semua villa
+
+    $queryVillas = Villa::with('specialCategories')->orderBy('nama_villa');
+    if ($filterVilla) {
+        $queryVillas->where('id', $filterVilla);
+    }
+    $villas = $queryVillas->get();
+
+    $reports = [];
+    $totalNetRevenueGlobal = 0;
+    $totalFeeManagementGlobal = 0;
+
+    // 2. Tentukan Rentang Bulan
+    $monthsToProcess = $selectedMonth ? [(int)$selectedMonth] : range(1, 12);
+
+    foreach ($villas as $villa) {
+        $specialCategoryIds = $villa->specialCategories->pluck('id')->toArray();
+        
+        $villaTotalLabaKotor = 0;
+        $villaTotalFeeAmount = 0;
+        $villaTotalServiceAmount = 0;
+        $usedFeesInPeriod = [];
+
+        foreach ($monthsToProcess as $month) {
+            $currentStart = Carbon::createFromDate($selectedYear, $month, 1)->startOfMonth();
+            $currentEnd = $currentStart->copy()->endOfMonth();
+
+            // Ambil Fee dari History atau Default Villa
+            $history = \App\Models\VillaFeeHistory::where('villa_id', $villa->id)
+                ->where('mulai_berlaku', '<=', $currentStart->format('Y-m-d'))
+                ->orderBy('mulai_berlaku', 'desc')
+                ->first();
+
+            $feeServicePercent = $history ? $history->service_karyawan : $villa->service_karyawan;
+            $feeManajPercent = $history ? $history->fee_manajemen : $villa->fee_manajemen;
+            
+            $usedFeesInPeriod[] = (float)$feeManajPercent;
+
+            // Query Data
+            $pKhusus = Pendapatan::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereIn('category_id', $specialCategoryIds)->sum('nominal');
+            $exKhusus = Pengeluaran::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereIn('category_id', $specialCategoryIds)->sum('nominal');
+            $pUmum = Pendapatan::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereNotIn('category_id', $specialCategoryIds)->sum('nominal');
+            $exUmum = Pengeluaran::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereNotIn('category_id', $specialCategoryIds)->sum('nominal');
+
+            // Hitung
+            $marginKhusus = $pKhusus - $exKhusus;
+            $sNominal = $marginKhusus > 0 ? $marginKhusus * ($feeServicePercent / 100) : 0;
+            $lKotor = ($marginKhusus - $sNominal) + ($pUmum - $exUmum);
+            $fNominal = $lKotor * ($feeManajPercent / 100);
+
+            $villaTotalLabaKotor += $lKotor;
+            $villaTotalFeeAmount += $fNominal;
+            $villaTotalServiceAmount += $sNominal;
+        }
+
+        $uniqueFees = array_unique($usedFeesInPeriod);
+        $displayFee = count($uniqueFees) > 1 ? 'Mixed' : head($uniqueFees);
+
+        $reports[] = [
+            'name' => $villa->nama_villa,
+            'laba_kotor' => $villaTotalLabaKotor,
+            'fee_percent' => $displayFee,
+            'fee_amount' => $villaTotalFeeAmount,
+            'service_amount' => $villaTotalServiceAmount,
+        ];
+
+        $totalNetRevenueGlobal += $villaTotalLabaKotor;
+        $totalFeeManagementGlobal += $villaTotalFeeAmount;
+    }
+
+    // 3. Metadata untuk Excel
+    $summary = [
+        'total_revenue' => $totalNetRevenueGlobal,
+        'total_fee' => $totalFeeManagementGlobal,
+    ];
+
+    $periode = $selectedMonth 
+        ? Carbon::createFromDate($selectedYear, (int)$selectedMonth, 1)->translatedFormat('F Y')
+        : "Tahun " . $selectedYear;
+
+    $filename = 'Laporan_Fee_Manajemen_' . str_replace(' ', '_', $periode) . '.xlsx';
+
+    return Excel::download(new ManagementFeeExport($reports, $summary, $periode), $filename);
+}
 
 
+public function managementFeePdf(Request $request)
+{
+    // 1. Logika pengambilan data (Sama dengan Excel)
+    $selectedYear = $request->tahun ?? now()->year;
+    $selectedMonth = $request->bulan;
+    $filterVilla = $request->villa_id;
 
+    $queryVillas = Villa::with('specialCategories')->orderBy('nama_villa');
+    if ($filterVilla) {
+        $queryVillas->where('id', $filterVilla);
+    }
+    $villas = $queryVillas->get();
+
+    $reports = [];
+    $totalNetRevenueGlobal = 0;
+    $totalFeeManagementGlobal = 0;
+    $monthsToProcess = $selectedMonth ? [(int)$selectedMonth] : range(1, 12);
+
+    foreach ($villas as $villa) {
+        $specialCategoryIds = $villa->specialCategories->pluck('id')->toArray();
+        $villaTotalLabaKotor = 0;
+        $villaTotalFeeAmount = 0;
+
+        foreach ($monthsToProcess as $month) {
+            $currentStart = \Carbon\Carbon::createFromDate($selectedYear, $month, 1)->startOfMonth();
+            $currentEnd = $currentStart->copy()->endOfMonth();
+
+            $history = \App\Models\VillaFeeHistory::where('villa_id', $villa->id)
+                ->where('mulai_berlaku', '<=', $currentStart->format('Y-m-d'))
+                ->orderBy('mulai_berlaku', 'desc')->first();
+
+            $feeServicePercent = $history ? $history->service_karyawan : $villa->service_karyawan;
+            $feeManajPercent = $history ? $history->fee_manajemen : $villa->fee_manajemen;
+
+            $pKhusus = Pendapatan::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereIn('category_id', $specialCategoryIds)->sum('nominal');
+            $exKhusus = Pengeluaran::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereIn('category_id', $specialCategoryIds)->sum('nominal');
+            $pUmum = Pendapatan::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereNotIn('category_id', $specialCategoryIds)->sum('nominal');
+            $exUmum = Pengeluaran::where('villa_id', $villa->id)->whereBetween('tanggal', [$currentStart, $currentEnd])->whereNotIn('category_id', $specialCategoryIds)->sum('nominal');
+
+            $marginKhusus = $pKhusus - $exKhusus;
+            $sNominal = $marginKhusus > 0 ? $marginKhusus * ($feeServicePercent / 100) : 0;
+            $lKotor = ($marginKhusus - $sNominal) + ($pUmum - $exUmum);
+            
+            $villaTotalLabaKotor += $lKotor;
+            $villaTotalFeeAmount += ($lKotor * ($feeManajPercent / 100));
+        }
+
+        $reports[] = [
+            'name' => $villa->nama_villa,
+            'laba_kotor' => $villaTotalLabaKotor,
+            'fee_percent' => $feeManajPercent, // Tambahkan baris ini
+            'fee_amount' => $villaTotalFeeAmount,
+        ];
+        $totalNetRevenueGlobal += $villaTotalLabaKotor;
+        $totalFeeManagementGlobal += $villaTotalFeeAmount;
+    }
+
+    $periode = $selectedMonth 
+        ? \Carbon\Carbon::createFromDate($selectedYear, (int)$selectedMonth, 1)->translatedFormat('F Y')
+        : "Tahun " . $selectedYear;
+
+    // 2. Load View PDF
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.management_fee_pdf', [
+        'reports' => $reports,
+        'totalRevenue' => $totalNetRevenueGlobal,
+        'totalFee' => $totalFeeManagementGlobal,
+        'periode' => $periode,
+        'averagePercent' => $totalNetRevenueGlobal > 0 ? ($totalFeeManagementGlobal / $totalNetRevenueGlobal) * 100 : 0
+    ])->setPaper('a4', 'portrait');
+
+    return $pdf->download('Laporan_Fee_Manajemen_' . str_replace(' ', '_', $periode) . '.pdf');
+}
 
 
 }

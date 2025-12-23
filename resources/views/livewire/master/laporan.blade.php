@@ -174,7 +174,7 @@
 
                     {{-- SEKSI UMUM --}}
                     <div class="p-3 bg-slate-50 rounded-lg space-y-2">
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Kategori Umum (Laundry/Dll)</p>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Kategori Umum</p>
                         <div class="flex justify-between text-sm">
                             <span class="text-slate-600">Margin Bersih Umum</span>
                             <span class="font-medium">Rp {{ number_format($reportData['pendapatanUmum'] - $reportData['pengeluaranUmum'], 0, ',', '.') }}</span>

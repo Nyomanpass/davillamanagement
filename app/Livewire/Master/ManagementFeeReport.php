@@ -199,6 +199,30 @@ class ManagementFeeReport extends Component
     ])->values());
 }
 
+public function exportReport()
+{
+    // Cukup panggil Route yang mengarah ke Controller di atas
+    // Membawa parameter filter saat ini
+    $params = [
+        'villa_id' => $this->filterVilla,
+        'bulan' => $this->selectedMonth,
+        'tahun' => $this->selectedYear,
+    ];
+
+    return redirect()->route('management.fee.excel', $params);
+}
+
+public function exportPdf()
+{
+    $params = [
+        'villa_id' => $this->filterVilla,
+        'bulan' => $this->selectedMonth,
+        'tahun' => $this->selectedYear,
+    ];
+
+    return redirect()->route('management.fee.pdf', $params);
+}
+
     public function render()
     {
         $months = [];
